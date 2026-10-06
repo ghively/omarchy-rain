@@ -36,6 +36,10 @@ BarWidget {
   property string corner: String(root.effective("corner", "tl")) || "tl"
   // Ray straightness for Light Shafts: 0 = wavy, 1 = subtle, 2 = straight.
   property real straightness: root.boundedNumber(root.effective("straightness", 1.0), 1.0, 0, 2)
+  // Colour override for every effect: "default" keeps each effect's own
+  // palette, a preset key from colorKeys picks a colour, "accent" follows the
+  // Omarchy theme accent, and a hand-edited "#rrggbb" sets any colour.
+  property string colorKey: root.validColor(root.effective("color", "default"))
   // Render quality knobs, applied globally to every effect. fps caps the
   // animation's frame rate; quality scales the resolution the shader paints
   // at (0.5x = a quarter of the pixels, 2x = supersampled).
@@ -53,18 +57,18 @@ BarWidget {
   // Effect catalogue. `effectIds` maps every catalogue key to the shader's
   // uEffect switch; `implementedEffects` lists the ones that actually render
   // and grows as effects ship, so the menu only offers built effects.
-  readonly property var effectKeys: ["Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"]
+  readonly property var effectKeys: ["Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"]
   readonly property var effectLabels: {
     "Rain": "Rain", "Snow": "Snowfall", "Ripples": "Puddle Ripples",
     "Dust": "Dust Motes", "Fireflies": "Fireflies",
     "Leaves": "Falling Leaves", "Aurora": "Aurora",
-    "Embers": "Embers",
+    "Starfield": "Starfield", "Embers": "Embers",
     "Bubbles": "Bubbles", "Confetti": "Confetti", "Caustics": "Caustic Light",
     "Light Shafts": "Light Shafts"
   }
   readonly property var effectIds: {
     "Rain": 0, "Snow": 1, "Ripples": 2, "Dust": 3,
-    "Fireflies": 4, "Leaves": 5, "Aurora": 6,
+    "Fireflies": 4, "Leaves": 5, "Aurora": 6, "Starfield": 7,
     "Embers": 9, "Bubbles": 10,
     "Confetti": 11, "Caustics": 12, "Light Shafts": 13
   }
@@ -72,7 +76,7 @@ BarWidget {
     "Rain": "RAIN SETTINGS", "Snow": "SNOWFALL SETTINGS", "Ripples": "PUDDLE RIPPLE SETTINGS",
     "Dust": "DUST MOTES SETTINGS", "Fireflies": "FIREFLY SETTINGS",
     "Leaves": "FALLING LEAVES SETTINGS", "Aurora": "AURORA SETTINGS",
-    "Embers": "EMBER SETTINGS",
+    "Starfield": "STARFIELD SETTINGS", "Embers": "EMBER SETTINGS",
     "Bubbles": "BUBBLE SETTINGS", "Confetti": "CONFETTI SETTINGS", "Caustics": "CAUSTIC SETTINGS",
     "Light Shafts": "LIGHT SHAFT SETTINGS"
   }
@@ -80,7 +84,7 @@ BarWidget {
     "Rain": "INTENSITY", "Snow": "DENSITY", "Ripples": "RAIN INTENSITY",
     "Dust": "AMOUNT", "Fireflies": "AMOUNT",
     "Leaves": "DENSITY", "Aurora": "BRIGHTNESS",
-    "Embers": "AMOUNT",
+    "Starfield": "STAR COUNT", "Embers": "AMOUNT",
     "Bubbles": "AMOUNT", "Confetti": "DENSITY", "Caustics": "BRIGHTNESS",
     "Light Shafts": "BRIGHTNESS"
   }
@@ -88,13 +92,13 @@ BarWidget {
     "Rain": "RAINFALL SPEED", "Snow": "SNOWFALL SPEED", "Ripples": "RAIN SPEED",
     "Dust": "FLOAT SPEED", "Fireflies": "DRIFT SPEED",
     "Leaves": "FALL SPEED", "Aurora": "MOTION SPEED",
-    "Embers": "EMBER RISE SPEED",
+    "Starfield": "TRAVEL SPEED", "Embers": "EMBER RISE SPEED",
     "Bubbles": "BUBBLE RISE SPEED", "Confetti": "CONFETTI FALL SPEED", "Caustics": "CAUSTIC MOTION SPEED",
     "Light Shafts": "LIGHT SHAFT MOTION"
   }
   readonly property var rainyEffects: ["Rain"]
   readonly property var implementedEffects: [
-    "Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"
+    "Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"
   ]
 
   // Leaf style variants for the Falling Leaves effect. `variantKeys` maps each
@@ -109,6 +113,20 @@ BarWidget {
   readonly property var cornerKeys: ["tl", "tr", "bl", "br"]
   readonly property var cornerLabels: {
     "tl": "Top-left", "tr": "Top-right", "bl": "Bottom-left", "br": "Bottom-right"
+  }
+
+  // Colour presets for the COLOR menu. `colorHex` gives each fixed preset's
+  // value; "default" and "accent" are resolved in tintVector().
+  readonly property var colorKeys: ["default", "accent", "white", "ice", "aqua", "mint", "lime", "gold", "amber", "red", "rose", "violet"]
+  readonly property var colorLabels: {
+    "default": "Effect colors", "accent": "Theme accent", "white": "White",
+    "ice": "Ice Blue", "aqua": "Aqua", "mint": "Mint", "lime": "Lime",
+    "gold": "Gold", "amber": "Amber", "red": "Red", "rose": "Rose", "violet": "Violet"
+  }
+  readonly property var colorHex: {
+    "white": "#ffffff", "ice": "#8fd3ff", "aqua": "#3ee6e0", "mint": "#7dffb0",
+    "lime": "#b6ff3e", "gold": "#ffc94a", "amber": "#ff8a3d", "red": "#ff4a4a",
+    "rose": "#ff7ab8", "violet": "#b38cff"
   }
 
   // While a settings slider is being dragged, the preview values drive the
@@ -166,6 +184,28 @@ BarWidget {
   function validEffect(value) {
     var name = String(value || "Rain")
     return root.implementedEffects.indexOf(name) >= 0 ? name : "Rain"
+  }
+
+  function validColor(value) {
+    var text = String(value || "default").toLowerCase()
+    if (root.colorKeys.indexOf(text) >= 0) return text
+    return /^#[0-9a-f]{6}$/.test(text) ? text : "default"
+  }
+
+  // The shader's uTint: rgb = colour, w = 1 when a tint is active.
+  function tintVector() {
+    var key = root.colorKey
+    if (key === "accent") {
+      // Qt.lighter(_, 1.0) normalizes a colour or colour string to a color.
+      var accent = Qt.lighter(Color.accent, 1.0)
+      if (!accent || !isFinite(accent.r)) return Qt.vector4d(0, 0, 0, 0)
+      return Qt.vector4d(accent.r, accent.g, accent.b, 1)
+    }
+    var hex = key.charAt(0) === "#" ? key : root.colorHex[key]
+    if (!hex) return Qt.vector4d(0, 0, 0, 0)
+    return Qt.vector4d(parseInt(hex.substr(1, 2), 16) / 255,
+                       parseInt(hex.substr(3, 2), 16) / 255,
+                       parseInt(hex.substr(5, 2), 16) / 255, 1)
   }
 
   function validInstanceId(value) {
@@ -411,6 +451,12 @@ BarWidget {
     root.persistSettings({ "straightness": number }, "Saved — straightness " + number.toFixed(1) + ".")
   }
 
+  function setColor(k) {
+    var key = root.validColor(k)
+    var label = root.colorLabels[key] || key
+    root.persistSettings({ "color": key }, "Saved — color " + label + ".")
+  }
+
   function fireStrike() {
     root.strikeX = 0.15 + 0.7 * Math.random()
     root.strikeLen = 0.30 + 0.5 * Math.random()
@@ -601,7 +647,7 @@ BarWidget {
     PanelKeyCatcher {
       id: panelKeys
       anchors.fill: parent
-      blocked: effectDropdown.popupOpen
+      blocked: effectDropdown.popupOpen || colorDropdown.popupOpen
       onCloseRequested: root.closeSettings()
       onActivateRequested: {
         if (lightningToggle.activeFocus) root.setLightning(!root.lightning)
@@ -677,6 +723,26 @@ BarWidget {
           Layout.fillWidth: true
           Layout.topMargin: Style.space(2)
           onChanged: root.setCorner(value)
+        }
+
+        Dropdown {
+          id: colorDropdown
+          label: "COLOR"
+          options: {
+            var o = []
+            for (var i = 0; i < root.colorKeys.length; i++) {
+              var k = root.colorKeys[i]
+              o.push({ "value": k, "label": root.colorLabels[k] })
+            }
+            // A hand-edited hex colour shows as its own entry so the menu
+            // reflects it instead of silently selecting nothing.
+            if (root.colorKey.charAt(0) === "#") o.push({ "value": root.colorKey, "label": "Custom " + root.colorKey })
+            return o
+          }
+          value: root.colorKey
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(2)
+          onChanged: root.setColor(value)
         }
 
         Text {
@@ -906,6 +972,7 @@ BarWidget {
         property real uVariant: root.variant === "cherry" ? 1 : 0
         property real uCorner: root.corner === "tr" ? 1 : (root.corner === "bl" ? 2 : (root.corner === "br" ? 3 : 0))
         property real uStraightness: root.currentStraightness()
+        property vector4d uTint: root.tintVector()
         vertexShader: Qt.resolvedUrl("rain.vert.qsb")
         fragmentShader: Qt.resolvedUrl("rain.frag.qsb")
       }

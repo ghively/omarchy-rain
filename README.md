@@ -41,6 +41,7 @@ other shell settings untouched.
 | `Fireflies` | Warm-green points of light wandering and blinking at dusk |
 | `Leaves` | Autumn leaves tumbling down through warm golden light, or Cherry Blossom via the STYLE sub-menu |
 | `Aurora` | Undulating northern-lights curtains over a starry night sky (optional audio-reactive) |
+| `Starfield` | Gliding through deep space: stars stream outward from the centre and rush past |
 | `Embers` | Warm fire sparks drifting up from below, flickering as they rise |
 | `Bubbles` | Clear round bubbles rising from the bottom edge, each with a bright rim |
 | `Confetti` | Small bright paper rectangles fluttering down in a light crosswind |
@@ -51,7 +52,8 @@ other shell settings untouched.
 
 **Right-click the wand for a settings menu**: an effect switch, a **STYLE**
 sub-menu for Falling Leaves (autumn or cherry blossom), a **CORNER** sub-menu
-and **STRAIGHTNESS** slider for Light Shafts, an **intensity slider**
+and **STRAIGHTNESS** slider for Light Shafts, a **COLOR** menu that recolors any
+effect, an **intensity slider**
 (relabeled per effect, 1 = light to 3 = heavy), a **speed slider**, a
 **framerate slider** (15–60 fps), a **resolution slider**
 (0.5x–2x native, in 0.5x steps), a **lightning** toggle for the rain
@@ -70,10 +72,11 @@ cannot turn the selected scale into an unbounded render.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
+| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
 | `variant` | string | `"autumn"` | Falling Leaves: `autumn` or `cherry` |
 | `corner` | string | `"tl"` | Light Shafts: `tl`, `tr`, `bl`, `br` source corner |
 | `straightness` | number | `1` | Light Shafts: 0 (wavy) to 2 (ruler-straight), in 0.1 steps |
+| `color` | string | `"default"` | Recolor every effect: `default` (each effect's own palette), `accent` (theme accent), `white`, `ice`, `aqua`, `mint`, `lime`, `gold`, `amber`, `red`, `rose`, `violet`, or any `"#rrggbb"` |
 | `running` | boolean | `false` | Whether the effect surface is active |
 | `density` | number | `2` | 1 (light) to 3 (heavy), in 0.1 steps; per-effect meaning |
 | `speed` | number | `1` | 0.5 (lazy) to 3 (fast) effect motion |
@@ -109,7 +112,9 @@ fields can be hand-edited too (flat keys, like the stock widgets):
   `.qsb` (Qt 6 ShaderEffect requires the precompiled form) and driven by
   uniforms: `time`, `uRes`, `uIntensity` (raw 1–3), `uSpeed`, `uEffect`
   (the implemented effect switch), plus the lightning, leaf-style, corner,
-  straightness, and audio uniforms used by their respective effects.
+  straightness, and audio uniforms used by their respective effects, and
+  `uTint` (the `color` setting) which `main()` applies to whichever effect
+  is showing.
 - The effect is painted into an offscreen canvas whose size is `quality` × the
   monitor's resolution, captured with `ShaderEffectSource` (`live`) and
   stretched over the full screen by a second, trivial sampling pass
@@ -121,6 +126,28 @@ fields can be hand-edited too (flat keys, like the stock widgets):
   its shape (seed + screen position + length), then a five-step SequentialAnimation
   flickers `uStrike` 1 → 0 → 1 → 0 like a real bolt; the shader renders the
   jagged polyline and a soft sky glow, and a slow Behavior fade closes the flash.
+
+## Developing
+
+Every effect is one branch of `scene()` in `rain.frag`; `main()` calls it and
+then applies the colour tint. Qt only loads the compiled `rain.frag.qsb`, so
+rebuild it after every shader edit (`qsb` ships with `qt6-shadertools`):
+
+```sh
+/usr/lib/qt6/bin/qsb --glsl 440 -o rain.frag.qsb rain.frag
+```
+
+That command reproduces the committed `.qsb` byte for byte. To add an effect:
+
+1. Add a branch to `scene()` in `rain.frag` before the "not yet implemented"
+   fallback, using a free `uEffect` id (8, or 14 and up) and the two-sided
+   test `uEffect > N - 0.5 && uEffect < N + 0.5`; then rebuild the `.qsb`.
+2. Register the key in `Rain.qml`: `effectKeys`, `effectLabels`, `effectIds`,
+   `settingsTitles`, `intensityLabels`, `speedLabels`, `implementedEffects`.
+3. Add it to `EFFECTS` in `write_settings.py` (saves are rejected otherwise)
+   and to the `effect` options in `manifest.json`.
+4. Run `python3 -m unittest discover -s tests`; a test fails if the QML,
+   manifest, and helper catalogues disagree.
 
 ## Notes
 
