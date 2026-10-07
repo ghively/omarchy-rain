@@ -26,6 +26,12 @@ The GPU runs it once for every pixel, every frame (up to 60 per second).
 
 ## 2. Hard rules
 
+0. **Work only in your own checkout, from its root.** Run every command from
+   the directory that contains `Rain.qml`, and only run the `tools/` inside
+   that same checkout. If `tools/new_effect.py` or this file's tools are
+   missing from your checkout, **stop and report it**: you are on an old
+   branch. Never borrow tools or files from another copy of the repository,
+   and never hand-edit the effect tables as a workaround.
 1. **Never edit a `.qsb` file by hand.** Only `tools/build_shader.sh` writes `rain.frag.qsb`.
 2. **Commit `rain.frag` and `rain.frag.qsb` together.** `tools/build_shader.sh --check` must say "up to date".
 3. **Don't change other effects' output.** Before finishing, run the comparison in step 6. Only the effects you meant to change may differ.
@@ -77,9 +83,12 @@ python3 tools/new_effect.py Lanterns \
   --after Embers
 ```
 
-- `Lanterns` is the key saved in settings: capitalised, letters and spaces only.
-- `--label` is the menu text. `--after` sets the menu position (default: last).
-- It prints the `uEffect` id it chose (the lowest free number).
+- `Lanterns` is the **key**: the internal name saved in settings and used in
+  every table. Keep it short, one word if possible, capitalised. It is
+  *not* the menu text: never use the label (`"Sky Lanterns"`) as the key.
+- `--label` is the menu text people see. `--after` sets the menu position (default: last).
+- It prints `Editing the repository at <path>`: check that `<path>` is your
+  checkout. Then it prints the `uEffect` id it chose (the lowest free number).
 - It refuses (exit 1, nothing changed) if the key exists or an argument is bad.
 
 **Step 2: find your branch.** `grep -n "TODO(Lanterns)" rain.frag`. The
@@ -298,6 +307,8 @@ Look at the PNGs from step 5. All must hold:
 | `render_effect.py`: "No display, and xvfb-run is not installed" | `apt-get install xvfb` (section 3) |
 | Test `scaffolded starter branch was never replaced` | Replace the `TODO(...)` starter body and comment |
 | Test about tables listing different effects | Someone edited the tables by hand; re-check with `git diff` and fix to match |
+| `new_effect: ... is not the BackgroundFX repository root` | `cd` to the directory containing `Rain.qml` and rerun |
+| `tools/` doesn't exist | Old branch. Stop and report; don't copy tools from elsewhere |
 | `--compare` shows other effects differ | You changed a shared helper, `tint()`, or the uniform block; revert and add a new helper instead |
 
 ## 9. Other kinds of change

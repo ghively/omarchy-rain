@@ -208,11 +208,18 @@ def main(argv=None):
     parser.add_argument("--speed-label", default="SPEED", help="Speed slider label (default SPEED)")
     parser.add_argument("--after", help="Place the effect after this one in the menu (default: last)")
     parser.add_argument("--id", type=int, dest="effect_id", help="uEffect id (default: lowest free id)")
-    parser.add_argument("--root", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."),
-                        help=argparse.SUPPRESS)
+    parser.add_argument("--root", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    # Edit the checkout you are standing in, never the one this script
+    # happens to live in: running another checkout's copy of the tool must
+    # not silently change that other checkout.
+    root = os.path.abspath(args.root or os.getcwd())
+    if not all(os.path.isfile(os.path.join(root, name)) for name in ("Rain.qml", "rain.frag", "write_settings.py")):
+        print("new_effect: %s is not the BackgroundFX repository root; cd there first" % root, file=sys.stderr)
+        return 1
+    print("Editing the repository at %s" % root)
     try:
-        effect_id = scaffold(os.path.abspath(args.root), args.key, args.label or args.key, args.description,
+        effect_id = scaffold(root, args.key, args.label or args.key, args.description,
                              args.intensity_label, args.speed_label, args.after, args.effect_id)
     except ScaffoldError as error:
         print("new_effect: " + str(error), file=sys.stderr)
