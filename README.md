@@ -37,11 +37,14 @@ other shell settings untouched.
 | `Rain` | Falling streaks in three depth layers over a wet-window dim, with optional lightning bolts |
 | `Snow` | Drifting, tumbling flakes in three depth layers with wind sway |
 | `Ripples` | Rain landing on water: expanding puddle rings |
+| `Fog` | Soft banks of mist rolling slowly across the screen, thickest near the ground |
 | `Dust` | Barely-moving motes drifting through a faint diagonal light shaft |
 | `Fireflies` | Warm-green points of light wandering and blinking at dusk |
 | `Leaves` | Autumn leaves tumbling down through warm golden light, or Cherry Blossom via the STYLE sub-menu |
 | `Aurora` | Undulating northern-lights curtains over a starry night sky (optional audio-reactive) |
 | `Starfield` | Gliding through deep space: stars stream outward from the centre and rush past |
+| `Nebula` | Glowing clouds of interstellar gas in magenta, blue and teal, drifting over faint stars |
+| `Meteors` | Shooting stars streaking across a dark sky from a shared radiant |
 | `Embers` | Warm fire sparks drifting up from below, flickering as they rise |
 | `Bubbles` | Clear round bubbles rising from the bottom edge, each with a bright rim |
 | `Confetti` | Small bright paper rectangles fluttering down in a light crosswind |
@@ -72,7 +75,7 @@ cannot turn the selected scale into an unbounded render.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
+| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Fog`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Nebula`, `Meteors`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
 | `variant` | string | `"autumn"` | Falling Leaves: `autumn` or `cherry` |
 | `corner` | string | `"tl"` | Light Shafts: `tl`, `tr`, `bl`, `br` source corner |
 | `straightness` | number | `1` | Light Shafts: 0 (wavy) to 2 (ruler-straight), in 0.1 steps |
@@ -131,23 +134,29 @@ fields can be hand-edited too (flat keys, like the stock widgets):
 
 Every effect is one branch of `scene()` in `rain.frag`; `main()` calls it and
 then applies the colour tint. Qt only loads the compiled `rain.frag.qsb`, so
-rebuild it after every shader edit (`qsb` ships with `qt6-shadertools`):
+rebuild it after every shader edit. **[AGENTS.md](AGENTS.md) is the full
+guide** (written so a coding agent can follow it step by step). The short
+version:
 
 ```sh
-/usr/lib/qt6/bin/qsb --glsl 440 -o rain.frag.qsb rain.frag
+python3 tools/new_effect.py Lanterns --description "Paper lanterns rising" --after Embers
+#   ...write the effect in the TODO(Lanterns) branch of rain.frag...
+tools/build_shader.sh                       # compile rain.frag -> rain.frag.qsb
+python3 tools/render_effect.py --effect Lanterns --time 2 6 12   # look at it
+python3 tools/render_effect.py --all --compare old/rain.frag.qsb  # nothing else changed
+python3 -m unittest discover -s tests
 ```
 
-That command reproduces the committed `.qsb` byte for byte. To add an effect:
-
-1. Add a branch to `scene()` in `rain.frag` before the "not yet implemented"
-   fallback, using a free `uEffect` id (8, or 14 and up) and the two-sided
-   test `uEffect > N - 0.5 && uEffect < N + 0.5`; then rebuild the `.qsb`.
-2. Register the key in `Rain.qml`: `effectKeys`, `effectLabels`, `effectIds`,
-   `settingsTitles`, `intensityLabels`, `speedLabels`, `implementedEffects`.
-3. Add it to `EFFECTS` in `write_settings.py` (saves are rejected otherwise)
-   and to the `effect` options in `manifest.json`.
-4. Run `python3 -m unittest discover -s tests`; a test fails if the QML,
-   manifest, and helper catalogues disagree.
+- `tools/new_effect.py` registers a new effect in `Rain.qml`,
+  `write_settings.py`, `manifest.json`, this README, and adds a working
+  starter branch to `rain.frag`.
+- `tools/build_shader.sh` finds Qt's `qsb` (`qt6-shadertools`, or a PySide6
+  install) and runs `qsb --glsl 440`, which reproduces the committed `.qsb`
+  byte for byte; `--check` reports a stale build.
+- `tools/render_effect.py` draws effects to PNG with the real shader, with no
+  Omarchy needed (it uses `xvfb-run` when there is no display).
+- The tests fail if the effect lists in those files disagree or a starter
+  branch was never replaced.
 
 ## Notes
 

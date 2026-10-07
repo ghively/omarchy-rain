@@ -57,20 +57,26 @@ BarWidget {
   // Effect catalogue. `effectIds` maps every catalogue key to the shader's
   // uEffect switch; `implementedEffects` lists the ones that actually render
   // and grows as effects ship, so the menu only offers built effects.
-  readonly property var effectKeys: ["Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"]
+  readonly property var effectKeys: ["Rain", "Snow", "Ripples", "Fog", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Nebula", "Meteors", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"]
   readonly property var effectLabels: {
     "Rain": "Rain", "Snow": "Snowfall", "Ripples": "Puddle Ripples",
     "Dust": "Dust Motes", "Fireflies": "Fireflies",
     "Leaves": "Falling Leaves", "Aurora": "Aurora",
     "Starfield": "Starfield", "Embers": "Embers",
     "Bubbles": "Bubbles", "Confetti": "Confetti", "Caustics": "Caustic Light",
-    "Light Shafts": "Light Shafts"
+    "Light Shafts": "Light Shafts",
+    "Fog": "Fog",
+    "Nebula": "Nebula",
+    "Meteors": "Meteor Shower"
   }
   readonly property var effectIds: {
     "Rain": 0, "Snow": 1, "Ripples": 2, "Dust": 3,
     "Fireflies": 4, "Leaves": 5, "Aurora": 6, "Starfield": 7,
     "Embers": 9, "Bubbles": 10,
-    "Confetti": 11, "Caustics": 12, "Light Shafts": 13
+    "Confetti": 11, "Caustics": 12, "Light Shafts": 13,
+    "Fog": 8,
+    "Nebula": 14,
+    "Meteors": 15
   }
   readonly property var settingsTitles: {
     "Rain": "RAIN SETTINGS", "Snow": "SNOWFALL SETTINGS", "Ripples": "PUDDLE RIPPLE SETTINGS",
@@ -78,7 +84,10 @@ BarWidget {
     "Leaves": "FALLING LEAVES SETTINGS", "Aurora": "AURORA SETTINGS",
     "Starfield": "STARFIELD SETTINGS", "Embers": "EMBER SETTINGS",
     "Bubbles": "BUBBLE SETTINGS", "Confetti": "CONFETTI SETTINGS", "Caustics": "CAUSTIC SETTINGS",
-    "Light Shafts": "LIGHT SHAFT SETTINGS"
+    "Light Shafts": "LIGHT SHAFT SETTINGS",
+    "Fog": "FOG SETTINGS",
+    "Nebula": "NEBULA SETTINGS",
+    "Meteors": "METEOR SHOWER SETTINGS"
   }
   readonly property var intensityLabels: {
     "Rain": "INTENSITY", "Snow": "DENSITY", "Ripples": "RAIN INTENSITY",
@@ -86,7 +95,10 @@ BarWidget {
     "Leaves": "DENSITY", "Aurora": "BRIGHTNESS",
     "Starfield": "STAR COUNT", "Embers": "AMOUNT",
     "Bubbles": "AMOUNT", "Confetti": "DENSITY", "Caustics": "BRIGHTNESS",
-    "Light Shafts": "BRIGHTNESS"
+    "Light Shafts": "BRIGHTNESS",
+    "Fog": "THICKNESS",
+    "Nebula": "BRIGHTNESS",
+    "Meteors": "METEOR COUNT"
   }
   readonly property var speedLabels: {
     "Rain": "RAINFALL SPEED", "Snow": "SNOWFALL SPEED", "Ripples": "RAIN SPEED",
@@ -94,11 +106,14 @@ BarWidget {
     "Leaves": "FALL SPEED", "Aurora": "MOTION SPEED",
     "Starfield": "TRAVEL SPEED", "Embers": "EMBER RISE SPEED",
     "Bubbles": "BUBBLE RISE SPEED", "Confetti": "CONFETTI FALL SPEED", "Caustics": "CAUSTIC MOTION SPEED",
-    "Light Shafts": "LIGHT SHAFT MOTION"
+    "Light Shafts": "LIGHT SHAFT MOTION",
+    "Fog": "DRIFT SPEED",
+    "Nebula": "DRIFT SPEED",
+    "Meteors": "METEOR SPEED"
   }
   readonly property var rainyEffects: ["Rain"]
   readonly property var implementedEffects: [
-    "Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"
+    "Rain", "Snow", "Ripples", "Fog", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Nebula", "Meteors", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"
   ]
 
   // Leaf style variants for the Falling Leaves effect. `variantKeys` maps each

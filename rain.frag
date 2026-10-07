@@ -47,6 +47,37 @@ float vnoise(vec2 q)
                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
 }
 
+// Fractal ("fbm") noise: four octaves of vnoise, each at roughly double the
+// frequency and half the weight of the last, so it has both broad shapes and
+// fine detail. Returns roughly 0..1, averaging 0.5. Used for fog and nebula
+// clouds; each call costs four vnoise lookups, so keep the count per pixel low.
+float fbm(vec2 q)
+{
+    float s = 0.0;
+    float a = 0.5;
+    for (int o = 0; o < 4; o++) {
+        s += a * vnoise(q);
+        q = q * 2.03 + vec2(1.7, 9.2);
+        a *= 0.5;
+    }
+    return s / 0.9375;
+}
+
+// Sparse, faintly twinkling background stars for night-sky effects. The
+// screen is cut into `cellPx` cells and a `chance` fraction of them (0..1)
+// hold one star. Returns brightness 0..1.
+float starDust(vec2 p, float flow, float cellPx, float chance)
+{
+    vec2 g = floor(p / cellPx);
+    vec2 rs = hash2(g + vec2(31.7, 12.9));
+    if (rs.x > chance) return 0.0;
+    vec2 at = (g + 0.15 + 0.7 * hash2(g + vec2(4.1, 8.3))) * cellPx;
+    float d = length(p - at);
+    if (d > 2.0) return 0.0;
+    float tw = 0.6 + 0.4 * sin(flow * (0.8 + 1.6 * rs.y) + rs.y * 50.0);
+    return (1.0 - smoothstep(0.0, 1.6, d)) * tw * (0.35 + 0.65 * rs.y);
+}
+
 // One snow layer in pixel space. Every cell of `cell` pixels carries a single
 // soft round flake that falls at its own speed and sways sideways with a
 // gentle breeze; a wobble in its size keeps near flakes from feeling static.
@@ -815,6 +846,105 @@ vec4 scene(vec2 p, float flow)
         vec3 col = vec3(1.00, 0.94, 0.82) * light * (1.5 * b);
 
         float alpha = clamp(light * b + 0.03, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
+    }
+
+    // Fog: soft banks of mist rolling slowly sideways, thickest toward the
+    // bottom of the screen like ground fog. Two fbm layers (a broad far bank
+    // and a finer near one moving faster) are bent by a shared warp field so
+    // the mist billows instead of looking like a uniform blur. Unlike the
+    // glowing effects, fog returns col = colour * alpha, so it veils the
+    // wallpaper rather than adding light. Intensity thickens it.
+    if (uEffect > 7.5 && uEffect < 8.5) {
+        float i = 0.75 + (uIntensity - 1.0) * 0.35;
+        vec2 n = p / uRes.y;                    // screen-height units, aspect-safe
+        float t = flow * 0.05;
+        vec2 w = vec2(fbm(n * 1.2 + vec2(t, 0.0)),
+                      fbm(n * 1.2 + vec2(3.1, 7.7) - vec2(0.0, t * 0.6)));
+        float far = fbm(n * 1.5 + w * 0.9 + vec2(t, 0.0));
+        float near = fbm(n * 2.6 + w * 1.3 + vec2(t * 2.2, 5.0));
+        float ground = mix(0.45, 1.0, smoothstep(0.1, 0.95, p.y / uRes.y));
+        float d = smoothstep(0.45, 0.85, far) * 0.6 + smoothstep(0.52, 0.90, near) * 0.4;
+        float a = clamp((d * ground * 0.8 + 0.03) * i, 0.0, 0.75);
+        vec3 col = vec3(0.82, 0.85, 0.90) * a;
+        return vec4(col, a * qt_Opacity);
+    }
+
+    // Nebula: glowing clouds of interstellar gas over faint stars. A warped
+    // fbm field sets where the gas is, a second fbm picks its colour (deep
+    // blue to magenta, teal in the densest knots), and a third cuts dark dust
+    // lanes through it. Everything drifts very slowly. Intensity brightens
+    // the gas.
+    if (uEffect > 13.5 && uEffect < 14.5) {
+        float i = 0.7 + (uIntensity - 1.0) * 0.4;
+        vec2 n = p / uRes.y;
+        float t = flow * 0.02;
+        vec2 q = n * 1.3 + vec2(t, t * 0.4);
+        vec2 w = vec2(fbm(q + vec2(1.7, 9.2)), fbm(q + vec2(8.3, 2.8) + t));
+        float gas = fbm(q + 1.6 * w);
+        float hue = fbm(q * 0.7 + 2.0 * w + vec2(4.0, 1.0));
+        float dust = fbm(n * 3.2 + w * 2.0 - vec2(t * 0.5, 0.0));
+        float cloud = smoothstep(0.48, 0.90, gas);
+        cloud *= 1.0 - 0.75 * smoothstep(0.52, 0.72, dust);
+
+        vec3 blue = vec3(0.24, 0.34, 0.85);
+        vec3 magenta = vec3(0.74, 0.30, 0.68);
+        vec3 teal = vec3(0.25, 0.90, 0.85);
+        vec3 neb = mix(blue, magenta, smoothstep(0.35, 0.65, hue));
+        neb = mix(neb, teal, smoothstep(0.68, 0.92, gas) * 0.55);
+
+        float st = starDust(p, flow, 64.0, 0.12);
+        vec3 col = vec3(0.01, 0.01, 0.03) + neb * cloud * 0.75 * i + vec3(0.90, 0.93, 1.00) * st;
+        float alpha = clamp(0.16 + cloud * 0.45 * i + st * 0.7, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
+    }
+
+    // Meteor shower: shooting stars over a dim, starry sky. Each of up to ten
+    // "slots" launches a meteor once per period (its own random length of
+    // time); each launch picks a fresh start point, length and brightness
+    // from a hash of the slot and launch number, so no QML timer is needed.
+    // All meteors share one travel direction, like a real shower radiating
+    // from a point off-screen. A meteor is a bright head with a tapering
+    // tail, fading in and out over its short flight. Intensity sets how many
+    // slots fire, speed how fast the meteors fly.
+    if (uEffect > 14.5 && uEffect < 15.5) {
+        float st = starDust(p, flow, 80.0, 0.10);
+        vec2 radiant = normalize(vec2(-0.78, 0.62));   // down and to the left
+        float count = 3.0 + 2.5 * uIntensity;          // 5.5 .. 10.5 slots
+        float reach = 0.28 * length(uRes);             // flight length, px
+        float lit = 0.0;
+        for (int k = 0; k < 10; k++) {
+            float kk = float(k);
+            if (kk >= count) break;
+            float period = 4.0 + 8.0 * hash(vec2(kk, 1.7));
+            float local = flow / period + hash(vec2(kk, 9.2));
+            float launch = floor(local);
+            float t = fract(local) * period / 0.9;    // 0..1 over a 0.9 s flight
+            if (t >= 1.0) continue;
+            vec2 r = hash2(vec2(launch * 3.1 + kk, kk * 7.7 + launch));
+            vec2 start = vec2((0.10 + 1.00 * r.x) * uRes.x, (-0.05 + 0.55 * r.y) * uRes.y);
+            vec2 d = normalize(radiant + (hash2(vec2(launch, kk + 3.3)) - 0.5) * 0.25);
+            float len = reach * (0.6 + 0.6 * hash(vec2(launch, kk + 5.1)));
+            vec2 head = start + d * len * t;
+            float tail = min(len * 0.45, len * t + 1.0);
+
+            vec2 q = p - head;
+            float along = dot(q, -d);                   // 0 at the head, + along the tail
+            float across = abs(dot(q, vec2(-d.y, d.x)));
+            if (along < -12.0 || along > tail + 12.0 || across > 12.0) continue;
+            float u = clamp(along / tail, 0.0, 1.0);
+            float fadeTail = (1.0 - u) * (1.0 - u) * step(-1.0, along);
+            float width = mix(1.5, 0.4, u);
+            float core = (1.0 - smoothstep(0.0, width, across)) * fadeTail;
+            float glow = exp(-across * 0.45) * fadeTail * 0.25;
+            float headGlow = exp(-length(q) * 0.35) * 0.9;
+            float env = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.65, 1.0, t));
+            float bright = 0.6 + 0.4 * r.y;
+            lit += (core + glow + headGlow) * env * bright;
+        }
+        lit = min(lit, 1.5);
+        vec3 col = vec3(0.01, 0.015, 0.04) + vec3(0.88, 0.94, 1.00) * (lit * 1.2 + st * 0.9);
+        float alpha = clamp(0.12 + lit * 0.9 + st * 0.6, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 

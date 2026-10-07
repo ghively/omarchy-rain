@@ -12,7 +12,7 @@
   },
   "barWidget": {
     "displayName": "BackgroundFX",
-    "description": "A wand icon that paints animated effects over the desktop wallpaper, behind every window. Pick rain with lightning, snowfall, puddle ripples, floating dust, fireflies, falling leaves, aurora, a starfield, embers, bubbles, confetti, caustics, or light shafts. Click to toggle; right-click for effect, intensity, speed, framerate, and resolution settings. Effects render on a background layer behind every window, so your apps stay on top.",
+    "description": "A wand icon that paints animated effects over the desktop wallpaper, behind every window. Pick rain with lightning, snowfall, puddle ripples, floating dust, fireflies, falling leaves, fog, aurora, a starfield, a nebula, meteor showers, embers, bubbles, confetti, caustics, or light shafts. Click to toggle; right-click for effect, intensity, speed, framerate, and resolution settings. Effects render on a background layer behind every window, so your apps stay on top.",
     "category": "Effects",
     "allowMultiple": true,
     "schema": [
@@ -27,7 +27,7 @@
         "key": "effect",
         "type": "enum",
         "label": "Effect",
-        "options": ["Rain", "Snow", "Ripples", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"],
+        "options": ["Rain", "Snow", "Ripples", "Fog", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Nebula", "Meteors", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"],
         "defaultValue": "Rain",
         "description": "The background effect painted over the wallpaper."
       },
