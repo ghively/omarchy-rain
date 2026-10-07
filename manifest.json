@@ -27,7 +27,7 @@
         "key": "effect",
         "type": "enum",
         "label": "Effect",
-        "options": ["Rain", "Snow", "Ripples", "Fog", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Nebula", "Meteors", "Embers", "Bubbles", "Confetti", "Caustics", "Light Shafts"],
+        "options": ["Rain", "Snow", "Ripples", "Fog", "Dust", "Fireflies", "Leaves", "Aurora", "Starfield", "Nebula", "Meteors", "Embers", "Lanterns", "Bubbles", "Confetti", "Caustics", "Light Shafts"],
         "defaultValue": "Rain",
         "description": "The background effect painted over the wallpaper."
       },

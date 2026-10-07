@@ -65,6 +65,7 @@ EFFECTS = {
     "Nebula",
     "Meteors",
     "Embers",
+    "Lanterns",
     "Bubbles",
     "Confetti",
     "Caustics",

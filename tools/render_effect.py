@@ -122,7 +122,7 @@ def main():
     args = parser.parse_args()
 
     ids = effect_ids()
-    names = list(ids) if args.all else args.effect
+    names = sorted(ids, key=ids.get) if args.all else args.effect
     if not names:
         parser.error("give --effect NAME or --all")
     for name in names:
