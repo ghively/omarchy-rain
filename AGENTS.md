@@ -123,6 +123,7 @@ python3 tools/render_effect.py --effect Lanterns --time 2 6 12
 python3 tools/render_effect.py --effect Lanterns --time 6 --intensity 1 --out fx-previews/low
 python3 tools/render_effect.py --effect Lanterns --time 6 --intensity 3 --out fx-previews/high
 python3 tools/render_effect.py --effect Lanterns --time 6 --tint "#ff7ab8" --out fx-previews/tint
+python3 tools/render_effect.py --effect Lanterns --time 6 --backdrop 0 --out fx-previews/clear
 ```
 
 Check every image against the acceptance list in section 7. Different
@@ -162,6 +163,7 @@ A test fails if a `TODO(` starter branch is still in `rain.frag`.
 | `flow` | `float` | Animation clock in seconds, already scaled by the speed slider. Use it for all motion |
 | `uIntensity` | `float` | The intensity slider, always 1..3. Map it yourself, e.g. `float i = 1.0 + (uIntensity - 1.0) * 0.5;` |
 | `uAudio` | `float` | Smoothed audio level 0..1 (only non-zero for Aurora today) |
+| `uBackdrop` | `float` | BACKGROUND slider 0..1: multiply your full-screen wash by it (see below) |
 | `qt_Opacity` | `float` | Multiply your alpha by this |
 
 Helpers you can call:
@@ -188,7 +190,12 @@ Helpers you can call:
 - **Matte veil** (fog, smoke, shadow): `col = colour * a; alpha = a;`. This
   covers the wallpaper.
 - **A faint full-screen wash** is a small constant in alpha, e.g. `+ 0.05`.
-  Keep it under 0.2 or the desktop gets murky.
+  Keep it under 0.2 or the desktop gets murky, and **always multiply every
+  wash by `uBackdrop`**, both the alpha constant and any constant colour,
+  e.g. `col = vec3(0.02, 0.03, 0.07) * uBackdrop + stars;` and
+  `alpha = 0.12 * uBackdrop + lum * 0.9;`. `uBackdrop` is the user's
+  BACKGROUND slider (0..1); at 0 they expect a clear wallpaper with only
+  your particles on it. Don't apply `uOpacity` yourself: `main()` does it.
 
 Colours are `vec3(r, g, b)` with 0..1 channels: `vec3(1.0, 0.6, 0.2)` is
 orange.
@@ -309,6 +316,8 @@ Look at the PNGs from step 5. All must hold:
 4. Intensity 1 is clearly lighter or sparser than intensity 3.
 5. With `--tint "#ff7ab8"` the effect turns pink, keeping its shape.
 6. No hard straight seams, grid lines, or visible repeating tiles.
+6b. With `--backdrop 0`, the wallpaper between particles looks exactly like
+    the bare gradient: no dim, haze or tint left over.
 7. Step 6's comparison shows only your effect as `DIFFERS`.
 8. Tests pass and `build_shader.sh --check` is up to date.
 9. **It looks like what was asked for.** Write one sentence describing what

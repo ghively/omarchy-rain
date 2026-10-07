@@ -10,6 +10,7 @@ saved as an image. Use it to check a new or edited effect.
 
   # Options: intensity 1-3, speed 0.5-3, tint colour, any uniform by name:
   python3 tools/render_effect.py --effect Fog --intensity 3 --tint "#ff7ab8"
+  python3 tools/render_effect.py --effect Aurora --backdrop 0 --opacity 0.6
   python3 tools/render_effect.py --effect Rain --set uStrike=1 uStrikePos=0.5,0.7
 
   # One frame of every effect on a single contact sheet:
@@ -114,6 +115,8 @@ def main():
     parser.add_argument("--intensity", type=float, default=2.0)
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--tint", help='Colour tint, e.g. "#ff7ab8" (default: effect colours)')
+    parser.add_argument("--opacity", type=float, default=1.0, help="Whole-effect opacity 0.1-1 (default 1)")
+    parser.add_argument("--backdrop", type=float, default=1.0, help="Background wash 0-1 (default 1)")
     parser.add_argument("--set", nargs="+", default=[], metavar="uName=v[,v...]", help="Set any uniform")
     parser.add_argument("--size", default="960x540", help="Image size WxH (default 960x540)")
     parser.add_argument("--qsb", default=os.path.join(ROOT, "rain.frag.qsb"), help=argparse.SUPPRESS)
@@ -170,6 +173,10 @@ def main():
         fx.setProperty("uSpeed", args.speed)
         if "uStraightness" in kinds:
             fx.setProperty("uStraightness", 1.0)
+        if "uOpacity" in kinds:
+            fx.setProperty("uOpacity", args.opacity)
+        if "uBackdrop" in kinds:
+            fx.setProperty("uBackdrop", args.backdrop)
         if "uStrikePos" in kinds:
             fx.setProperty("uStrikePos", QVector2D(0.5, 0.6))
         if "uTint" in kinds:

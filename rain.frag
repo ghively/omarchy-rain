@@ -22,6 +22,12 @@ layout(std140, binding = 0) uniform buf {
     // Global colour override: rgb = target colour, a = 1 when a tint is set
     // (0 keeps each effect's own palette). See tint() below.
     vec4 uTint;
+    // Global transparency controls, both 0..1 with 1 = the original look.
+    // uOpacity fades the whole effect; uBackdrop scales only the faint
+    // full-screen washes (dims, sky tints, glows) each effect lays under its
+    // particles, so 0 leaves just the particles over a clear wallpaper.
+    float uOpacity;
+    float uBackdrop;
 };
 
 float hash(vec2 p)
@@ -476,7 +482,7 @@ vec4 scene(vec2 p, float flow)
         // Pale steel-blue streaks; the wet-down look darkens and cools the
         // wallpaper as the rain builds up.
         vec3 wet = vec3(0.55, 0.65, 0.85);
-        vec3 col = wet * (0.4 + 1.1 * total);
+        vec3 col = wet * (0.4 * uBackdrop + 1.1 * total);
 
         // Lightning: a distant-strike cloud glow plus the drawn bolt.
         float flash = uFlash;
@@ -497,7 +503,7 @@ vec4 scene(vec2 p, float flow)
 
         // A wet-window dim plus the streaks' own alpha keeps drops visible on
         // both bright and dark wallpapers. Heavier rain darkens the scene more.
-        float wetness = 0.10 * total + 0.05 * (uIntensity - 1.0);
+        float wetness = 0.10 * total + 0.05 * (uIntensity - 1.0) * uBackdrop;
         float dim = wetness + 0.10 * flash;
         float alpha = clamp(dim + total * (0.36 + 0.10 * uIntensity), 0.0, 1.0);
         alpha += clamp(boltAlpha, 0.0, 1.0) * 0.9;
@@ -514,8 +520,8 @@ vec4 scene(vec2 p, float flow)
         float a3 = snowLayer(p, vec2(88.0, 150.0) / i, 6.0, flow, vec2(2.2, 6.6), flow * 13.0) * 1.0;
         float total = clamp(a1 + a2 + a3, 0.0, 1.0);
 
-        vec3 col = vec3(0.80, 0.86, 0.98) * (0.30 + 1.05 * total);
-        float alpha = clamp(total * 0.95 + 0.04 * (uIntensity - 1.0), 0.0, 1.0);
+        vec3 col = vec3(0.80, 0.86, 0.98) * (0.30 * uBackdrop + 1.05 * total);
+        float alpha = clamp(total * 0.95 + 0.04 * (uIntensity - 1.0) * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -530,10 +536,10 @@ vec4 scene(vec2 p, float flow)
 
         float sp = rainLayer(p, vec2(30.0, 120.0), 1.1, 0.9, flow, vec2(9.4, 2.9)) * 0.35;
 
-        vec3 col = vec3(0.45, 0.53, 0.66) * (0.35 + 0.55 * sp);
+        vec3 col = vec3(0.45, 0.53, 0.66) * (0.35 * uBackdrop + 0.55 * sp);
         col += vec3(0.82, 0.90, 1.00) * ripples * 0.9;
 
-        float alpha = clamp(0.30 * sp + ripples * 0.95 + 0.06, 0.0, 1.0);
+        float alpha = clamp(0.30 * sp + ripples * 0.95 + 0.06 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -554,9 +560,9 @@ vec4 scene(vec2 p, float flow)
         float beamD = length(p - proj);
         float halfW = 0.12 * uRes.x;
         float beam = exp(-beamD * beamD / (halfW * halfW * 2.0)) * 0.55;
-        beam *= 0.22;
+        beam *= 0.22 * uBackdrop;
 
-        vec3 col = vec3(0.98, 0.94, 0.85) * (0.10 + 0.55 * motes + beam * 0.7);
+        vec3 col = vec3(0.98, 0.94, 0.85) * (0.10 * uBackdrop + 0.55 * motes + beam * 0.7);
         float alpha = clamp(motes * 0.85 + beam * 0.5, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
@@ -571,9 +577,9 @@ vec4 scene(vec2 p, float flow)
         float flies = clamp(f1 + f2 + f3, 0.0, 1.1);
 
         vec3 glow = vec3(0.85, 0.95, 0.45);
-        vec3 col = vec3(0.24, 0.30, 0.34) * 0.16;
+        vec3 col = vec3(0.24, 0.30, 0.34) * 0.16 * uBackdrop;
         col += glow * flies * 0.85;
-        float alpha = clamp(flies * 0.9 + 0.05, 0.0, 1.0);
+        float alpha = clamp(flies * 0.9 + 0.05 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -606,10 +612,10 @@ vec4 scene(vec2 p, float flow)
         float lum = clamp(length(leaves), 0.0, 1.0);
         // Evening ambient light: golden for autumn, a soft blossom tinge for cherry.
         vec3 amb = uVariant > 0.5 ? vec3(0.96, 0.88, 0.92) : vec3(0.82, 0.58, 0.30);
-        vec3 col = amb * (0.25 + 0.45 * lum);
+        vec3 col = amb * (0.25 * uBackdrop + 0.45 * lum);
         col += leaves * 1.15;
 
-        float alpha = clamp(lum * 0.85 + 0.03, 0.0, 1.0);
+        float alpha = clamp(lum * 0.85 + 0.03 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -622,7 +628,7 @@ vec4 scene(vec2 p, float flow)
         vec2 n = p / uRes;
 
         // Faint twinkling stars scattered across the night sky.
-        vec3 col = vec3(0.10, 0.13, 0.21) * 0.30;
+        vec3 col = vec3(0.10, 0.13, 0.21) * 0.30 * uBackdrop;
         {
             vec2 sc2 = p / vec2(140.0, 140.0);
             vec2 sg2 = floor(sc2);
@@ -662,7 +668,7 @@ vec4 scene(vec2 p, float flow)
         curtain = mix(curtain, pink, smoothstep(0.40, 0.85, 1.0 - n.y));
         col += curtain * (band * 0.55 * i * (1.0 + 1.2 * react));
 
-        float alpha = clamp(0.30 + band * 0.6 * (0.55 + 0.35 * i) * (1.0 + react), 0.0, 1.0);
+        float alpha = clamp(0.30 * uBackdrop + band * 0.6 * (0.55 + 0.35 * i) * (1.0 + react), 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -705,8 +711,8 @@ vec4 scene(vec2 p, float flow)
         }
         float lum = clamp(max(stars.r, max(stars.g, stars.b)), 0.0, 1.0);
         // A faint deep-space dim lets the stars read over bright wallpapers.
-        vec3 col = vec3(0.02, 0.03, 0.07) + stars * 1.2;
-        float alpha = clamp(0.12 + lum * 0.9, 0.0, 1.0);
+        vec3 col = vec3(0.02, 0.03, 0.07) * uBackdrop + stars * 1.2;
+        float alpha = clamp(0.12 * uBackdrop + lum * 0.9, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -727,7 +733,7 @@ vec4 scene(vec2 p, float flow)
         vec3 col = mix(glow, hot, smoothstep(0.3, 0.9, embers)) * embers;
         col *= 1.5;
 
-        float alpha = clamp(embers * 0.95 + 0.02, 0.0, 1.0);
+        float alpha = clamp(embers * 0.95 + 0.02 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -765,10 +771,10 @@ vec4 scene(vec2 p, float flow)
 
         float lum = clamp(length(confetti), 0.0, 1.0);
         // Faint cool backdrop so bright pieces pop, never a bright wash.
-        vec3 col = vec3(0.10, 0.13, 0.22) * (0.18 + 0.25 * lum);
+        vec3 col = vec3(0.10, 0.13, 0.22) * (0.18 + 0.25 * lum) * uBackdrop;
         col += confetti * 1.15;
 
-        float alpha = clamp(lum * 0.8 + 0.05, 0.0, 1.0);
+        float alpha = clamp(lum * 0.8 + 0.05 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -791,9 +797,9 @@ vec4 scene(vec2 p, float flow)
 
         // Sunlit water light over a faint cold undertone.
         vec3 col = vec3(0.45, 0.85, 1.00) * web * (1.6 * b);
-        col += vec3(0.08, 0.16, 0.30) * b * 0.5;
+        col += vec3(0.08, 0.16, 0.30) * b * 0.5 * uBackdrop;
 
-        float alpha = clamp(web * b + 0.02, 0.0, 1.0);
+        float alpha = clamp(web * b + 0.02 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -845,7 +851,7 @@ vec4 scene(vec2 p, float flow)
         // Warm golden daylight.
         vec3 col = vec3(1.00, 0.94, 0.82) * light * (1.5 * b);
 
-        float alpha = clamp(light * b + 0.03, 0.0, 1.0);
+        float alpha = clamp(light * b + 0.03 * uBackdrop, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -865,7 +871,7 @@ vec4 scene(vec2 p, float flow)
         float near = fbm(n * 2.6 + w * 1.3 + vec2(t * 2.2, 5.0));
         float ground = mix(0.45, 1.0, smoothstep(0.1, 0.95, p.y / uRes.y));
         float d = smoothstep(0.45, 0.85, far) * 0.6 + smoothstep(0.52, 0.90, near) * 0.4;
-        float a = clamp((d * ground * 0.8 + 0.03) * i, 0.0, 0.75);
+        float a = clamp((d * ground * 0.8 + 0.03 * uBackdrop) * i, 0.0, 0.75);
         vec3 col = vec3(0.82, 0.85, 0.90) * a;
         return vec4(col, a * qt_Opacity);
     }
@@ -873,8 +879,9 @@ vec4 scene(vec2 p, float flow)
     // Nebula: glowing clouds of interstellar gas over faint stars. A warped
     // fbm field sets where the gas is, a second fbm picks its colour (deep
     // blue to magenta, teal in the densest knots), and a third cuts dark dust
-    // lanes through it. Everything drifts very slowly. Intensity brightens
-    // the gas.
+    // lanes through it. Everything drifts very slowly. The gas is drawn as
+    // added light (col well above alpha) so the wallpaper shows through it
+    // rather than being covered. Intensity brightens the gas.
     if (uEffect > 13.5 && uEffect < 14.5) {
         float i = 0.7 + (uIntensity - 1.0) * 0.4;
         vec2 n = p / uRes.y;
@@ -884,8 +891,8 @@ vec4 scene(vec2 p, float flow)
         float gas = fbm(q + 1.6 * w);
         float hue = fbm(q * 0.7 + 2.0 * w + vec2(4.0, 1.0));
         float dust = fbm(n * 3.2 + w * 2.0 - vec2(t * 0.5, 0.0));
-        float cloud = smoothstep(0.48, 0.90, gas);
-        cloud *= 1.0 - 0.75 * smoothstep(0.52, 0.72, dust);
+        float cloud = smoothstep(0.56, 0.92, gas);
+        cloud *= 1.0 - 0.85 * smoothstep(0.50, 0.70, dust);
 
         vec3 blue = vec3(0.24, 0.34, 0.85);
         vec3 magenta = vec3(0.74, 0.30, 0.68);
@@ -894,8 +901,8 @@ vec4 scene(vec2 p, float flow)
         neb = mix(neb, teal, smoothstep(0.68, 0.92, gas) * 0.55);
 
         float st = starDust(p, flow, 64.0, 0.12);
-        vec3 col = vec3(0.01, 0.01, 0.03) + neb * cloud * 0.75 * i + vec3(0.90, 0.93, 1.00) * st;
-        float alpha = clamp(0.16 + cloud * 0.45 * i + st * 0.7, 0.0, 1.0);
+        vec3 col = vec3(0.01, 0.01, 0.03) * uBackdrop + neb * cloud * 0.50 * i + vec3(0.90, 0.93, 1.00) * st;
+        float alpha = clamp(0.10 * uBackdrop + cloud * 0.16 * i + st * 0.7, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -943,8 +950,8 @@ vec4 scene(vec2 p, float flow)
             lit += (core + glow + headGlow) * env * bright;
         }
         lit = min(lit, 1.5);
-        vec3 col = vec3(0.01, 0.015, 0.04) + vec3(0.88, 0.94, 1.00) * (lit * 1.2 + st * 0.9);
-        float alpha = clamp(0.12 + lit * 0.9 + st * 0.6, 0.0, 1.0);
+        vec3 col = vec3(0.01, 0.015, 0.04) * uBackdrop + vec3(0.88, 0.94, 1.00) * (lit * 1.2 + st * 0.9);
+        float alpha = clamp(0.12 * uBackdrop + lit * 0.9 + st * 0.6, 0.0, 1.0);
         return vec4(col, alpha * qt_Opacity);
     }
 
@@ -975,5 +982,5 @@ void main()
     // wrap instant. Precision far exceeds realistic session lengths.
     float flow = time * uSpeed;
     vec2 p = qt_TexCoord0 * uRes;
-    fragColor = tint(scene(p, flow));
+    fragColor = tint(scene(p, flow)) * uOpacity;
 }

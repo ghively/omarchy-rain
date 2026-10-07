@@ -40,6 +40,12 @@ BarWidget {
   // palette, a preset key from colorKeys picks a colour, "accent" follows the
   // Omarchy theme accent, and a hand-edited "#rrggbb" sets any colour.
   property string colorKey: root.validColor(root.effective("color", "default"))
+  // Transparency, applied to every effect. `opacity` (key) fades the whole
+  // effect; `backdrop` scales only the faint full-screen wash each effect lays
+  // under its particles (0 = particles over a clear wallpaper). Both default
+  // to 1, the original look. Named fx* because Item already has `opacity`.
+  property real fxOpacity: root.boundedNumber(root.effective("opacity", 1), 1, 0.1, 1)
+  property real fxBackdrop: root.boundedNumber(root.effective("backdrop", 1), 1, 0, 1)
   // Render quality knobs, applied globally to every effect. fps caps the
   // animation's frame rate; quality scales the resolution the shader paints
   // at (0.5x = a quarter of the pixels, 2x = supersampled).
@@ -152,6 +158,8 @@ BarWidget {
   property real fpsPreview: -1
   property real qualityPreview: -1
   property real straightnessPreview: -1
+  property real opacityPreview: -1
+  property real backdropPreview: -1
 
   // Active lightning strike: amount (0..1, animated with a flicker), the
   // per-strike seed/position/length that fix the bolt's shape for its short
@@ -370,6 +378,12 @@ BarWidget {
   function currentQuality() {
     return root.boundedNumber(root.qualityPreview >= 0 ? root.qualityPreview : root.quality, 1, 0.5, 2)
   }
+  function currentOpacity() {
+    return root.boundedNumber(root.opacityPreview >= 0 ? root.opacityPreview : root.fxOpacity, 1, 0.1, 1)
+  }
+  function currentBackdrop() {
+    return root.boundedNumber(root.backdropPreview >= 0 ? root.backdropPreview : root.fxBackdrop, 1, 0, 1)
+  }
   function currentStraightness() {
     return root.boundedNumber(root.straightnessPreview >= 0 ? root.straightnessPreview : root.straightness, 1, 0, 2)
   }
@@ -388,6 +402,8 @@ BarWidget {
       root.fpsPreview = -1
       root.qualityPreview = -1
       root.straightnessPreview = -1
+      root.opacityPreview = -1
+      root.backdropPreview = -1
     }
   }
 
@@ -416,6 +432,8 @@ BarWidget {
     root.fpsPreview = -1
     root.qualityPreview = -1
     root.straightnessPreview = -1
+    root.opacityPreview = -1
+    root.backdropPreview = -1
   }
 
   function setDensity(value) {
@@ -436,6 +454,16 @@ BarWidget {
   function setQuality(value) {
     var number = root.boundedNumber(value, 1, 0.5, 2)
     root.persistSettings({ "quality": number }, "Saved — resolution " + number.toFixed(1) + "x.")
+  }
+
+  function setOpacity(value) {
+    var number = root.boundedNumber(value, 1, 0.1, 1)
+    root.persistSettings({ "opacity": number }, "Saved — opacity " + Math.round(number * 100) + "%.")
+  }
+
+  function setBackdrop(value) {
+    var number = root.boundedNumber(value, 1, 0, 1)
+    root.persistSettings({ "backdrop": number }, "Saved — background " + Math.round(number * 100) + "%.")
   }
 
   function setLightning(on) {
@@ -843,6 +871,60 @@ BarWidget {
         }
 
         Text {
+          text: "OPACITY  ·  " + Math.round(root.currentOpacity() * 100) + "%"
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.bodySmall
+          font.bold: true
+          Layout.alignment: Qt.AlignLeft
+          Layout.topMargin: Style.space(6)
+        }
+
+        PanelSlider {
+          id: opacitySlider
+          bar: root.bar
+          value: root.currentOpacity()
+          minimum: 0.1
+          maximum: 1.0
+          step: 0.05
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(2)
+          onMoved: root.opacityPreview = value
+          onReleased: {
+            root.opacityPreview = value
+            root.setOpacity(Number(value.toFixed(2)))
+          }
+        }
+
+        // The faint full-screen wash under the particles (rain's wet dim,
+        // the aurora's night sky, ...). 0% leaves a clear wallpaper.
+        Text {
+          text: "BACKGROUND  ·  " + Math.round(root.currentBackdrop() * 100) + "%"
+          color: Color.foreground
+          font.family: Style.font.family
+          font.pixelSize: Style.font.bodySmall
+          font.bold: true
+          Layout.alignment: Qt.AlignLeft
+          Layout.topMargin: Style.space(6)
+        }
+
+        PanelSlider {
+          id: backdropSlider
+          bar: root.bar
+          value: root.currentBackdrop()
+          minimum: 0.0
+          maximum: 1.0
+          step: 0.05
+          Layout.fillWidth: true
+          Layout.topMargin: Style.space(2)
+          onMoved: root.backdropPreview = value
+          onReleased: {
+            root.backdropPreview = value
+            root.setBackdrop(Number(value.toFixed(2)))
+          }
+        }
+
+        Text {
           text: "FRAMERATE  ·  " + Math.round(root.currentFps()) + " fps"
           color: Color.foreground
           font.family: Style.font.family
@@ -988,6 +1070,8 @@ BarWidget {
         property real uCorner: root.corner === "tr" ? 1 : (root.corner === "bl" ? 2 : (root.corner === "br" ? 3 : 0))
         property real uStraightness: root.currentStraightness()
         property vector4d uTint: root.tintVector()
+        property real uOpacity: root.currentOpacity()
+        property real uBackdrop: root.currentBackdrop()
         vertexShader: Qt.resolvedUrl("rain.vert.qsb")
         fragmentShader: Qt.resolvedUrl("rain.frag.qsb")
       }

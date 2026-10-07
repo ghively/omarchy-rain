@@ -43,6 +43,10 @@ class WriteSettingsTests(unittest.TestCase):
             {"fps": float("inf")},
             {"quality": -1},
             {"straightness": 2.1},
+            {"opacity": 0},
+            {"opacity": 1.5},
+            {"backdrop": -0.1},
+            {"backdrop": True},
             {"fps": True},
             {"effect": "Unknown"},
             {"color": "purple"},
@@ -59,6 +63,7 @@ class WriteSettingsTests(unittest.TestCase):
         self.assertEqual(write_settings.validate_changes({"effect": "Starfield"}), {"effect": "Starfield"})
         self.assertEqual(write_settings.validate_changes({"color": "accent"}), {"color": "accent"})
         self.assertEqual(write_settings.validate_changes({"color": "#FF7AB8"}), {"color": "#ff7ab8"})
+        self.assertEqual(write_settings.validate_changes({"opacity": 0.5, "backdrop": 0}), {"opacity": 0.5, "backdrop": 0})
 
     def test_effect_catalogue_matches_manifest(self):
         manifest = json.loads((Path(__file__).resolve().parent.parent / "manifest.json").read_text())

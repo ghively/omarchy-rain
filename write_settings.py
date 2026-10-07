@@ -76,6 +76,8 @@ NUMERIC_LIMITS = {
     "fps": (15.0, 60.0),
     "quality": (0.5, 2.0),
     "straightness": (0.0, 2.0),
+    "opacity": (0.1, 1.0),
+    "backdrop": (0.0, 1.0),
 }
 BOOLEAN_KEYS = {"running", "lightning", "audio"}
 COLOR_PRESETS = {

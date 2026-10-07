@@ -56,7 +56,9 @@ other shell settings untouched.
 **Right-click the wand for a settings menu**: an effect switch, a **STYLE**
 sub-menu for Falling Leaves (autumn or cherry blossom), a **CORNER** sub-menu
 and **STRAIGHTNESS** slider for Light Shafts, a **COLOR** menu that recolors any
-effect, an **intensity slider**
+effect, **OPACITY** and **BACKGROUND** sliders that make any effect more
+see-through (BACKGROUND at 0% removes the dim or sky wash so only the
+particles remain), an **intensity slider**
 (relabeled per effect, 1 = light to 3 = heavy), a **speed slider**, a
 **framerate slider** (15–60 fps), a **resolution slider**
 (0.5x–2x native, in 0.5x steps), a **lightning** toggle for the rain
@@ -80,6 +82,8 @@ cannot turn the selected scale into an unbounded render.
 | `corner` | string | `"tl"` | Light Shafts: `tl`, `tr`, `bl`, `br` source corner |
 | `straightness` | number | `1` | Light Shafts: 0 (wavy) to 2 (ruler-straight), in 0.1 steps |
 | `color` | string | `"default"` | Recolor every effect: `default` (each effect's own palette), `accent` (theme accent), `white`, `ice`, `aqua`, `mint`, `lime`, `gold`, `amber`, `red`, `rose`, `violet`, or any `"#rrggbb"` |
+| `opacity` | number | `1` | Whole-effect opacity, 0.1 (barely there) to 1 (full), every effect |
+| `backdrop` | number | `1` | Full-screen wash under the particles, 0 (clear wallpaper) to 1, every effect |
 | `running` | boolean | `false` | Whether the effect surface is active |
 | `density` | number | `2` | 1 (light) to 3 (heavy), in 0.1 steps; per-effect meaning |
 | `speed` | number | `1` | 0.5 (lazy) to 3 (fast) effect motion |
