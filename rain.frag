@@ -948,21 +948,6 @@ vec4 scene(vec2 p, float flow)
         return vec4(col, alpha * qt_Opacity);
     }
 
-    // Lanterns: Warm paper lanterns drifting slowly upward
-    // TODO(Lanterns): replace this starter body with the real effect. It
-    // draws three layers of white glowing dots so the effect visibly
-    // renders before you start. See AGENTS.md for the recipe.
-    if (uEffect > 15.5 && uEffect < 16.5) {
-        float i = 1.0 + (uIntensity - 1.0) * 0.5;
-        float a1 = fireflyLayer(p, vec2(80.0, 90.0) / i, 2.0, flow, vec2(1.3, 7.7), flow * 1.0) * 0.7;
-        float a2 = fireflyLayer(p, vec2(160.0, 175.0) / i, 2.8, flow, vec2(5.9, 2.4), flow * 1.6) * 0.9;
-        float a3 = fireflyLayer(p, vec2(280.0, 300.0) / i, 3.6, flow, vec2(8.2, 6.1), flow * 2.2) * 1.0;
-        float lum = clamp(a1 + a2 + a3, 0.0, 1.0);
-        vec3 col = vec3(1.0) * lum;
-        float alpha = clamp(lum * 0.9, 0.0, 1.0);
-        return vec4(col, alpha * qt_Opacity);
-    }
-
     // Effects not yet implemented render nothing.
     return vec4(0.0, 0.0, 0.0, 0.0);
 }

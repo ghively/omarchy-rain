@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 /fx-previews/
 /.venv-fx/
+/.claude/worktrees/

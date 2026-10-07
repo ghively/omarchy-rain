@@ -46,7 +46,6 @@ other shell settings untouched.
 | `Nebula` | Glowing clouds of interstellar gas in magenta, blue and teal, drifting over faint stars |
 | `Meteors` | Shooting stars streaking across a dark sky from a shared radiant |
 | `Embers` | Warm fire sparks drifting up from below, flickering as they rise |
-| `Lanterns` | Warm paper lanterns drifting slowly upward |
 | `Bubbles` | Clear round bubbles rising from the bottom edge, each with a bright rim |
 | `Confetti` | Small bright paper rectangles fluttering down in a light crosswind |
 | `Caustics` | Shimmering underwater light-web, like light on a shallow pool bed |
@@ -76,7 +75,7 @@ cannot turn the selected scale into an unbounded render.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Fog`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Nebula`, `Meteors`, `Embers`, `Lanterns`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
+| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Fog`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Nebula`, `Meteors`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
 | `variant` | string | `"autumn"` | Falling Leaves: `autumn` or `cherry` |
 | `corner` | string | `"tl"` | Light Shafts: `tl`, `tr`, `bl`, `br` source corner |
 | `straightness` | number | `1` | Light Shafts: 0 (wavy) to 2 (ruler-straight), in 0.1 steps |
