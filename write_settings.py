@@ -56,10 +56,14 @@ EFFECTS = {
     "Rain",
     "Snow",
     "Ripples",
+    "Fog",
     "Dust",
     "Fireflies",
     "Leaves",
     "Aurora",
+    "Starfield",
+    "Nebula",
+    "Meteors",
     "Embers",
     "Bubbles",
     "Confetti",
@@ -72,8 +76,25 @@ NUMERIC_LIMITS = {
     "fps": (15.0, 60.0),
     "quality": (0.5, 2.0),
     "straightness": (0.0, 2.0),
+    "opacity": (0.1, 1.0),
+    "backdrop": (0.0, 1.0),
 }
 BOOLEAN_KEYS = {"running", "lightning", "audio"}
+COLOR_PRESETS = {
+    "default",
+    "accent",
+    "white",
+    "ice",
+    "aqua",
+    "mint",
+    "lime",
+    "gold",
+    "amber",
+    "red",
+    "rose",
+    "violet",
+}
+COLOR_HEX_RE = re.compile(r"^#[0-9a-f]{6}$")
 ENUM_KEYS = {
     "effect": EFFECTS,
     "variant": {"autumn", "cherry"},
@@ -538,6 +559,15 @@ def validate_changes(changes) -> dict:
         if key in BOOLEAN_KEYS:
             if type(value) is not bool:
                 fail("%s must be a boolean" % key)
+            validated[key] = value
+            continue
+        if key == "color":
+            # A named preset, or any "#rrggbb" colour (stored lowercase).
+            if not isinstance(value, str):
+                fail("invalid value for color")
+            value = value.lower()
+            if value not in COLOR_PRESETS and not COLOR_HEX_RE.fullmatch(value):
+                fail("invalid value for color")
             validated[key] = value
             continue
         if key in ENUM_KEYS:

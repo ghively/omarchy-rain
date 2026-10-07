@@ -2,6 +2,7 @@ import copy
 import io
 import json
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -42,13 +43,44 @@ class WriteSettingsTests(unittest.TestCase):
             {"fps": float("inf")},
             {"quality": -1},
             {"straightness": 2.1},
+            {"opacity": 0},
+            {"opacity": 1.5},
+            {"backdrop": -0.1},
+            {"backdrop": True},
             {"fps": True},
             {"effect": "Unknown"},
+            {"color": "purple"},
+            {"color": "#12345"},
+            {"color": "#gggggg"},
+            {"color": 0xFF0000},
             {"unknown": 1},
         ):
             with self.subTest(changes=changes), redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     write_settings.validate_changes(changes)
+
+    def test_validates_effects_and_colors(self):
+        self.assertEqual(write_settings.validate_changes({"effect": "Starfield"}), {"effect": "Starfield"})
+        self.assertEqual(write_settings.validate_changes({"color": "accent"}), {"color": "accent"})
+        self.assertEqual(write_settings.validate_changes({"color": "#FF7AB8"}), {"color": "#ff7ab8"})
+        self.assertEqual(write_settings.validate_changes({"opacity": 0.5, "backdrop": 0}), {"opacity": 0.5, "backdrop": 0})
+
+    def test_effect_catalogue_matches_manifest(self):
+        manifest = json.loads((Path(__file__).resolve().parent.parent / "manifest.json").read_text())
+        schema = {item["key"]: item for item in manifest["barWidget"]["schema"]}
+        self.assertEqual(set(schema["effect"]["options"]), write_settings.EFFECTS)
+        self.assertEqual(set(schema["color"]["options"]), write_settings.COLOR_PRESETS)
+
+    def test_effect_catalogue_matches_widget(self):
+        # Rain.qml's implementedEffects, effectIds, and colorKeys must stay in
+        # step with the helper's allowlists, or saving a choice fails.
+        qml = (Path(__file__).resolve().parent.parent / "Rain.qml").read_text()
+        implemented = re.search(r"implementedEffects: \[(.*?)\]", qml, re.S).group(1)
+        self.assertEqual(set(re.findall(r'"([^"]+)"', implemented)), write_settings.EFFECTS)
+        ids = re.search(r"effectIds: \{(.*?)\}", qml, re.S).group(1)
+        self.assertEqual(set(re.findall(r'"([^"]+)":', ids)), write_settings.EFFECTS)
+        colors = re.search(r"colorKeys: \[(.*?)\]", qml, re.S).group(1)
+        self.assertEqual(set(re.findall(r'"([^"]+)"', colors)), write_settings.COLOR_PRESETS)
 
     def test_selector_targets_one_instance(self):
         layout = {

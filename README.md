@@ -37,10 +37,14 @@ other shell settings untouched.
 | `Rain` | Falling streaks in three depth layers over a wet-window dim, with optional lightning bolts |
 | `Snow` | Drifting, tumbling flakes in three depth layers with wind sway |
 | `Ripples` | Rain landing on water: expanding puddle rings |
+| `Fog` | Soft banks of mist rolling slowly across the screen, thickest near the ground |
 | `Dust` | Barely-moving motes drifting through a faint diagonal light shaft |
 | `Fireflies` | Warm-green points of light wandering and blinking at dusk |
 | `Leaves` | Autumn leaves tumbling down through warm golden light, or Cherry Blossom via the STYLE sub-menu |
 | `Aurora` | Undulating northern-lights curtains over a starry night sky (optional audio-reactive) |
+| `Starfield` | Gliding through deep space: stars stream outward from the centre and rush past |
+| `Nebula` | Glowing clouds of interstellar gas in magenta, blue and teal, drifting over faint stars |
+| `Meteors` | Shooting stars streaking across a dark sky from a shared radiant |
 | `Embers` | Warm fire sparks drifting up from below, flickering as they rise |
 | `Bubbles` | Clear round bubbles rising from the bottom edge, each with a bright rim |
 | `Confetti` | Small bright paper rectangles fluttering down in a light crosswind |
@@ -51,7 +55,10 @@ other shell settings untouched.
 
 **Right-click the wand for a settings menu**: an effect switch, a **STYLE**
 sub-menu for Falling Leaves (autumn or cherry blossom), a **CORNER** sub-menu
-and **STRAIGHTNESS** slider for Light Shafts, an **intensity slider**
+and **STRAIGHTNESS** slider for Light Shafts, a **COLOR** menu that recolors any
+effect, **OPACITY** and **BACKGROUND** sliders that make any effect more
+see-through (BACKGROUND at 0% removes the dim or sky wash so only the
+particles remain), an **intensity slider**
 (relabeled per effect, 1 = light to 3 = heavy), a **speed slider**, a
 **framerate slider** (15–60 fps), a **resolution slider**
 (0.5x–2x native, in 0.5x steps), a **lightning** toggle for the rain
@@ -70,10 +77,13 @@ cannot turn the selected scale into an unbounded render.
 
 | Key | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
+| `effect` | string | `"Rain"` | `Rain`, `Snow`, `Ripples`, `Fog`, `Dust`, `Fireflies`, `Leaves`, `Aurora`, `Starfield`, `Nebula`, `Meteors`, `Embers`, `Bubbles`, `Confetti`, `Caustics`, `Light Shafts` |
 | `variant` | string | `"autumn"` | Falling Leaves: `autumn` or `cherry` |
 | `corner` | string | `"tl"` | Light Shafts: `tl`, `tr`, `bl`, `br` source corner |
 | `straightness` | number | `1` | Light Shafts: 0 (wavy) to 2 (ruler-straight), in 0.1 steps |
+| `color` | string | `"default"` | Recolor every effect: `default` (each effect's own palette), `accent` (theme accent), `white`, `ice`, `aqua`, `mint`, `lime`, `gold`, `amber`, `red`, `rose`, `violet`, or any `"#rrggbb"` |
+| `opacity` | number | `1` | Whole-effect opacity, 0.1 (barely there) to 1 (full), every effect |
+| `backdrop` | number | `1` | Full-screen wash under the particles, 0 (clear wallpaper) to 1, every effect |
 | `running` | boolean | `false` | Whether the effect surface is active |
 | `density` | number | `2` | 1 (light) to 3 (heavy), in 0.1 steps; per-effect meaning |
 | `speed` | number | `1` | 0.5 (lazy) to 3 (fast) effect motion |
@@ -109,7 +119,9 @@ fields can be hand-edited too (flat keys, like the stock widgets):
   `.qsb` (Qt 6 ShaderEffect requires the precompiled form) and driven by
   uniforms: `time`, `uRes`, `uIntensity` (raw 1–3), `uSpeed`, `uEffect`
   (the implemented effect switch), plus the lightning, leaf-style, corner,
-  straightness, and audio uniforms used by their respective effects.
+  straightness, and audio uniforms used by their respective effects, and
+  `uTint` (the `color` setting) which `main()` applies to whichever effect
+  is showing.
 - The effect is painted into an offscreen canvas whose size is `quality` × the
   monitor's resolution, captured with `ShaderEffectSource` (`live`) and
   stretched over the full screen by a second, trivial sampling pass
@@ -121,6 +133,34 @@ fields can be hand-edited too (flat keys, like the stock widgets):
   its shape (seed + screen position + length), then a five-step SequentialAnimation
   flickers `uStrike` 1 → 0 → 1 → 0 like a real bolt; the shader renders the
   jagged polyline and a soft sky glow, and a slow Behavior fade closes the flash.
+
+## Developing
+
+Every effect is one branch of `scene()` in `rain.frag`; `main()` calls it and
+then applies the colour tint. Qt only loads the compiled `rain.frag.qsb`, so
+rebuild it after every shader edit. **[AGENTS.md](AGENTS.md) is the full
+guide** (written so a coding agent can follow it step by step). The short
+version:
+
+```sh
+python3 tools/new_effect.py Lanterns --description "Paper lanterns rising" --after Embers
+#   ...write the effect in the TODO(Lanterns) branch of rain.frag...
+tools/build_shader.sh                       # compile rain.frag -> rain.frag.qsb
+python3 tools/render_effect.py --effect Lanterns --time 2 6 12   # look at it
+python3 tools/render_effect.py --all --compare old/rain.frag.qsb  # nothing else changed
+python3 -m unittest discover -s tests
+```
+
+- `tools/new_effect.py` registers a new effect in `Rain.qml`,
+  `write_settings.py`, `manifest.json`, this README, and adds a working
+  starter branch to `rain.frag`.
+- `tools/build_shader.sh` finds Qt's `qsb` (`qt6-shadertools`, or a PySide6
+  install) and runs `qsb --glsl 440`, which reproduces the committed `.qsb`
+  byte for byte; `--check` reports a stale build.
+- `tools/render_effect.py` draws effects to PNG with the real shader, with no
+  Omarchy needed (it uses `xvfb-run` when there is no display).
+- The tests fail if the effect lists in those files disagree or a starter
+  branch was never replaced.
 
 ## Notes
 

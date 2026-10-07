@@ -19,6 +19,15 @@ layout(std140, binding = 0) uniform buf {
     float uVariant;
     float uCorner;
     float uStraightness;
+    // Global colour override: rgb = target colour, a = 1 when a tint is set
+    // (0 keeps each effect's own palette). See tint() below.
+    vec4 uTint;
+    // Global transparency controls, both 0..1 with 1 = the original look.
+    // uOpacity fades the whole effect; uBackdrop scales only the faint
+    // full-screen washes (dims, sky tints, glows) each effect lays under its
+    // particles, so 0 leaves just the particles over a clear wallpaper.
+    float uOpacity;
+    float uBackdrop;
 };
 
 float hash(vec2 p)
@@ -42,6 +51,37 @@ float vnoise(vec2 q)
     vec2 u = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
                mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+
+// Fractal ("fbm") noise: four octaves of vnoise, each at roughly double the
+// frequency and half the weight of the last, so it has both broad shapes and
+// fine detail. Returns roughly 0..1, averaging 0.5. Used for fog and nebula
+// clouds; each call costs four vnoise lookups, so keep the count per pixel low.
+float fbm(vec2 q)
+{
+    float s = 0.0;
+    float a = 0.5;
+    for (int o = 0; o < 4; o++) {
+        s += a * vnoise(q);
+        q = q * 2.03 + vec2(1.7, 9.2);
+        a *= 0.5;
+    }
+    return s / 0.9375;
+}
+
+// Sparse, faintly twinkling background stars for night-sky effects. The
+// screen is cut into `cellPx` cells and a `chance` fraction of them (0..1)
+// hold one star. Returns brightness 0..1.
+float starDust(vec2 p, float flow, float cellPx, float chance)
+{
+    vec2 g = floor(p / cellPx);
+    vec2 rs = hash2(g + vec2(31.7, 12.9));
+    if (rs.x > chance) return 0.0;
+    vec2 at = (g + 0.15 + 0.7 * hash2(g + vec2(4.1, 8.3))) * cellPx;
+    float d = length(p - at);
+    if (d > 2.0) return 0.0;
+    float tw = 0.6 + 0.4 * sin(flow * (0.8 + 1.6 * rs.y) + rs.y * 50.0);
+    return (1.0 - smoothstep(0.0, 1.6, d)) * tw * (0.35 + 0.65 * rs.y);
 }
 
 // One snow layer in pixel space. Every cell of `cell` pixels carries a single
@@ -417,13 +457,11 @@ float lightningBolt(vec2 p, vec2 start, float lenPx, float ampPx, float seed)
     return d;
 }
 
-void main()
+// Effect switch: paints the selected effect for pixel `p` (in render-target
+// pixels) at animation clock `flow` (time × speed). Each branch owns its
+// output and returns a premultiplied-style colour; main() applies the tint.
+vec4 scene(vec2 p, float flow)
 {
-    // Continuous time, no modulo: wrapping would teleport every streak at the
-    // wrap instant. Precision far exceeds realistic session lengths.
-    float flow = time * uSpeed;
-    vec2 p = qt_TexCoord0 * uRes;
-
     // Effect switch. Each branch owns its output.
     // Rain: three depth layers of slanted streaks over a wet window dim, with
     // optional lightning.
@@ -444,7 +482,7 @@ void main()
         // Pale steel-blue streaks; the wet-down look darkens and cools the
         // wallpaper as the rain builds up.
         vec3 wet = vec3(0.55, 0.65, 0.85);
-        vec3 col = wet * (0.4 + 1.1 * total);
+        vec3 col = wet * (0.4 * uBackdrop + 1.1 * total);
 
         // Lightning: a distant-strike cloud glow plus the drawn bolt.
         float flash = uFlash;
@@ -465,14 +503,13 @@ void main()
 
         // A wet-window dim plus the streaks' own alpha keeps drops visible on
         // both bright and dark wallpapers. Heavier rain darkens the scene more.
-        float wetness = 0.10 * total + 0.05 * (uIntensity - 1.0);
+        float wetness = 0.10 * total + 0.05 * (uIntensity - 1.0) * uBackdrop;
         float dim = wetness + 0.10 * flash;
         float alpha = clamp(dim + total * (0.36 + 0.10 * uIntensity), 0.0, 1.0);
         alpha += clamp(boltAlpha, 0.0, 1.0) * 0.9;
         alpha *= qt_Opacity;
 
-        fragColor = vec4(col, alpha);
-        return;
+        return vec4(col, alpha);
     }
 
     // Snow: three depth layers of drifting flakes over a cool brightening.
@@ -483,10 +520,9 @@ void main()
         float a3 = snowLayer(p, vec2(88.0, 150.0) / i, 6.0, flow, vec2(2.2, 6.6), flow * 13.0) * 1.0;
         float total = clamp(a1 + a2 + a3, 0.0, 1.0);
 
-        vec3 col = vec3(0.80, 0.86, 0.98) * (0.30 + 1.05 * total);
-        float alpha = clamp(total * 0.95 + 0.04 * (uIntensity - 1.0), 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        vec3 col = vec3(0.80, 0.86, 0.98) * (0.30 * uBackdrop + 1.05 * total);
+        float alpha = clamp(total * 0.95 + 0.04 * (uIntensity - 1.0) * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Puddle ripples: drops hitting a notional water surface throw up
@@ -500,12 +536,11 @@ void main()
 
         float sp = rainLayer(p, vec2(30.0, 120.0), 1.1, 0.9, flow, vec2(9.4, 2.9)) * 0.35;
 
-        vec3 col = vec3(0.45, 0.53, 0.66) * (0.35 + 0.55 * sp);
+        vec3 col = vec3(0.45, 0.53, 0.66) * (0.35 * uBackdrop + 0.55 * sp);
         col += vec3(0.82, 0.90, 1.00) * ripples * 0.9;
 
-        float alpha = clamp(0.30 * sp + ripples * 0.95 + 0.06, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(0.30 * sp + ripples * 0.95 + 0.06 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Floating dust motes: sparse, barely-moving specks drifting through a
@@ -525,12 +560,11 @@ void main()
         float beamD = length(p - proj);
         float halfW = 0.12 * uRes.x;
         float beam = exp(-beamD * beamD / (halfW * halfW * 2.0)) * 0.55;
-        beam *= 0.22;
+        beam *= 0.22 * uBackdrop;
 
-        vec3 col = vec3(0.98, 0.94, 0.85) * (0.10 + 0.55 * motes + beam * 0.7);
+        vec3 col = vec3(0.98, 0.94, 0.85) * (0.10 * uBackdrop + 0.55 * motes + beam * 0.7);
         float alpha = clamp(motes * 0.85 + beam * 0.5, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Fireflies: sparse warm-green points of light wandering slowly through a
@@ -543,11 +577,10 @@ void main()
         float flies = clamp(f1 + f2 + f3, 0.0, 1.1);
 
         vec3 glow = vec3(0.85, 0.95, 0.45);
-        vec3 col = vec3(0.24, 0.30, 0.34) * 0.16;
+        vec3 col = vec3(0.24, 0.30, 0.34) * 0.16 * uBackdrop;
         col += glow * flies * 0.85;
-        float alpha = clamp(flies * 0.9 + 0.05, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(flies * 0.9 + 0.05 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Falling leaves: three depth layers of leaves tumbling down over a warm,
@@ -579,12 +612,11 @@ void main()
         float lum = clamp(length(leaves), 0.0, 1.0);
         // Evening ambient light: golden for autumn, a soft blossom tinge for cherry.
         vec3 amb = uVariant > 0.5 ? vec3(0.96, 0.88, 0.92) : vec3(0.82, 0.58, 0.30);
-        vec3 col = amb * (0.25 + 0.45 * lum);
+        vec3 col = amb * (0.25 * uBackdrop + 0.45 * lum);
         col += leaves * 1.15;
 
-        float alpha = clamp(lum * 0.85 + 0.03, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(lum * 0.85 + 0.03 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Aurora: a deep night sky with a single undulating curtain of light
@@ -596,7 +628,7 @@ void main()
         vec2 n = p / uRes;
 
         // Faint twinkling stars scattered across the night sky.
-        vec3 col = vec3(0.10, 0.13, 0.21) * 0.30;
+        vec3 col = vec3(0.10, 0.13, 0.21) * 0.30 * uBackdrop;
         {
             vec2 sc2 = p / vec2(140.0, 140.0);
             vec2 sg2 = floor(sc2);
@@ -636,9 +668,52 @@ void main()
         curtain = mix(curtain, pink, smoothstep(0.40, 0.85, 1.0 - n.y));
         col += curtain * (band * 0.55 * i * (1.0 + 1.2 * react));
 
-        float alpha = clamp(0.30 + band * 0.6 * (0.55 + 0.35 * i) * (1.0 + react), 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(0.30 * uBackdrop + band * 0.6 * (0.55 + 0.35 * i) * (1.0 + react), 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
+    }
+
+    // Starfield: flying slowly through a field of stars. Four depth shells of
+    // stars each zoom outward from the screen centre, fading in when distant
+    // and out as they rush past, then respawn far away with a fresh layout so
+    // the field never visibly repeats. Intensity scales how many stars there
+    // are, speed how fast you travel.
+    if (uEffect > 6.5 && uEffect < 7.5) {
+        float i = 1.0 + (uIntensity - 1.0) * 0.6;
+        vec2 c = p - 0.5 * uRes;
+        float cell = 120.0 / i;
+        vec3 stars = vec3(0.0);
+        for (int k = 0; k < 4; k++) {
+            float travel = flow * 0.05 + float(k) * 0.25;
+            float z = fract(travel);              // 0 = far away, 1 = passing
+            float cycle = floor(travel);          // reseed every pass
+            float zoom = exp2(z * 4.0 - 2.0);     // 0.25x -> 4x, steady growth
+            float fade = smoothstep(0.0, 0.3, z) * (1.0 - smoothstep(0.85, 1.0, z));
+
+            vec2 w = c / zoom;
+            vec2 sg = floor(w / cell);
+            vec2 sf = fract(w / cell);
+            vec2 seed = vec2(float(k) * 13.7 + cycle * 7.31, cycle * 3.17);
+            vec2 rs = hash2(sg + seed);
+            // Only some cells hold a star, so the sky never looks gridded.
+            if (rs.x > 0.55) continue;
+            vec2 at = 0.1 + 0.8 * hash2(sg + seed + vec2(5.3, 1.9));
+            float d = length((sf - at) * cell * zoom);
+            float r = mix(0.5, 3.0, z) * (0.7 + 0.6 * rs.y);
+            float lim = r * 3.5;
+            if (d > lim) continue;
+            float core = 1.0 - smoothstep(0.0, r, d);
+            float halo = (1.0 - smoothstep(r, lim, d)) * 0.25;
+            float tw = 0.75 + 0.25 * sin(flow * (1.5 + 3.0 * rs.y) + rs.x * 40.0);
+            // Most stars blue-white, a few warm.
+            vec3 hue = mix(vec3(0.78, 0.86, 1.00), vec3(1.00, 0.88, 0.70),
+                           step(0.8, hash(sg + seed + vec2(9.1, 4.4))));
+            stars += hue * (core + halo) * fade * tw;
+        }
+        float lum = clamp(max(stars.r, max(stars.g, stars.b)), 0.0, 1.0);
+        // A faint deep-space dim lets the stars read over bright wallpapers.
+        vec3 col = vec3(0.02, 0.03, 0.07) * uBackdrop + stars * 1.2;
+        float alpha = clamp(0.12 * uBackdrop + lum * 0.9, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Embers: sparse warm fire sparks drifting up from below the frame. Each is
@@ -658,9 +733,8 @@ void main()
         vec3 col = mix(glow, hot, smoothstep(0.3, 0.9, embers)) * embers;
         col *= 1.5;
 
-        float alpha = clamp(embers * 0.95 + 0.02, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(embers * 0.95 + 0.02 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Bubbles: clear round bubbles rising through the water, each with a bright
@@ -682,8 +756,7 @@ void main()
         col += vec3(0.55, 0.75, 0.88) * fill * 0.35;
 
         float alpha = clamp((vis + fill) * 0.85, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Confetti: small bright paper rectangles fluttering down in a light
@@ -698,12 +771,11 @@ void main()
 
         float lum = clamp(length(confetti), 0.0, 1.0);
         // Faint cool backdrop so bright pieces pop, never a bright wash.
-        vec3 col = vec3(0.10, 0.13, 0.22) * (0.18 + 0.25 * lum);
+        vec3 col = vec3(0.10, 0.13, 0.22) * (0.18 + 0.25 * lum) * uBackdrop;
         col += confetti * 1.15;
 
-        float alpha = clamp(lum * 0.8 + 0.05, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(lum * 0.8 + 0.05 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Caustics: the shifting light web you see on the bed of a shallow pool.
@@ -725,11 +797,10 @@ void main()
 
         // Sunlit water light over a faint cold undertone.
         vec3 col = vec3(0.45, 0.85, 1.00) * web * (1.6 * b);
-        col += vec3(0.08, 0.16, 0.30) * b * 0.5;
+        col += vec3(0.08, 0.16, 0.30) * b * 0.5 * uBackdrop;
 
-        float alpha = clamp(web * b + 0.02, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(web * b + 0.02 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Light Shafts: a fan of warm light beams streaming from a chosen corner of
@@ -780,11 +851,136 @@ void main()
         // Warm golden daylight.
         vec3 col = vec3(1.00, 0.94, 0.82) * light * (1.5 * b);
 
-        float alpha = clamp(light * b + 0.03, 0.0, 1.0);
-        fragColor = vec4(col, alpha * qt_Opacity);
-        return;
+        float alpha = clamp(light * b + 0.03 * uBackdrop, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
+    }
+
+    // Fog: soft banks of mist rolling slowly sideways, thickest toward the
+    // bottom of the screen like ground fog. Two fbm layers (a broad far bank
+    // and a finer near one moving faster) are bent by a shared warp field so
+    // the mist billows instead of looking like a uniform blur. Unlike the
+    // glowing effects, fog returns col = colour * alpha, so it veils the
+    // wallpaper rather than adding light. Intensity thickens it.
+    if (uEffect > 7.5 && uEffect < 8.5) {
+        float i = 0.75 + (uIntensity - 1.0) * 0.35;
+        vec2 n = p / uRes.y;                    // screen-height units, aspect-safe
+        float t = flow * 0.05;
+        vec2 w = vec2(fbm(n * 1.2 + vec2(t, 0.0)),
+                      fbm(n * 1.2 + vec2(3.1, 7.7) - vec2(0.0, t * 0.6)));
+        float far = fbm(n * 1.5 + w * 0.9 + vec2(t, 0.0));
+        float near = fbm(n * 2.6 + w * 1.3 + vec2(t * 2.2, 5.0));
+        float ground = mix(0.45, 1.0, smoothstep(0.1, 0.95, p.y / uRes.y));
+        float d = smoothstep(0.45, 0.85, far) * 0.6 + smoothstep(0.52, 0.90, near) * 0.4;
+        float a = clamp((d * ground * 0.8 + 0.03 * uBackdrop) * i, 0.0, 0.75);
+        vec3 col = vec3(0.82, 0.85, 0.90) * a;
+        return vec4(col, a * qt_Opacity);
+    }
+
+    // Nebula: glowing clouds of interstellar gas over faint stars. A warped
+    // fbm field sets where the gas is, a second fbm picks its colour (deep
+    // blue to magenta, teal in the densest knots), and a third cuts dark dust
+    // lanes through it. Everything drifts very slowly. The gas is drawn as
+    // added light (col well above alpha) so the wallpaper shows through it
+    // rather than being covered. Intensity brightens the gas.
+    if (uEffect > 13.5 && uEffect < 14.5) {
+        float i = 0.7 + (uIntensity - 1.0) * 0.4;
+        vec2 n = p / uRes.y;
+        float t = flow * 0.02;
+        vec2 q = n * 1.3 + vec2(t, t * 0.4);
+        vec2 w = vec2(fbm(q + vec2(1.7, 9.2)), fbm(q + vec2(8.3, 2.8) + t));
+        float gas = fbm(q + 1.6 * w);
+        float hue = fbm(q * 0.7 + 2.0 * w + vec2(4.0, 1.0));
+        float dust = fbm(n * 3.2 + w * 2.0 - vec2(t * 0.5, 0.0));
+        float cloud = smoothstep(0.56, 0.92, gas);
+        cloud *= 1.0 - 0.85 * smoothstep(0.50, 0.70, dust);
+
+        vec3 blue = vec3(0.24, 0.34, 0.85);
+        vec3 magenta = vec3(0.74, 0.30, 0.68);
+        vec3 teal = vec3(0.25, 0.90, 0.85);
+        vec3 neb = mix(blue, magenta, smoothstep(0.35, 0.65, hue));
+        neb = mix(neb, teal, smoothstep(0.68, 0.92, gas) * 0.55);
+
+        float st = starDust(p, flow, 64.0, 0.12);
+        vec3 col = vec3(0.01, 0.01, 0.03) * uBackdrop + neb * cloud * 0.50 * i + vec3(0.90, 0.93, 1.00) * st;
+        float alpha = clamp(0.10 * uBackdrop + cloud * 0.16 * i + st * 0.7, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
+    }
+
+    // Meteor shower: shooting stars over a dim, starry sky. Each of up to ten
+    // "slots" launches a meteor once per period (its own random length of
+    // time); each launch picks a fresh start point, length and brightness
+    // from a hash of the slot and launch number, so no QML timer is needed.
+    // All meteors share one travel direction, like a real shower radiating
+    // from a point off-screen. A meteor is a bright head with a tapering
+    // tail, fading in and out over its short flight. Intensity sets how many
+    // slots fire, speed how fast the meteors fly.
+    if (uEffect > 14.5 && uEffect < 15.5) {
+        float st = starDust(p, flow, 80.0, 0.10);
+        vec2 radiant = normalize(vec2(-0.78, 0.62));   // down and to the left
+        float count = 3.0 + 2.5 * uIntensity;          // 5.5 .. 10.5 slots
+        float reach = 0.28 * length(uRes);             // flight length, px
+        float lit = 0.0;
+        for (int k = 0; k < 10; k++) {
+            float kk = float(k);
+            if (kk >= count) break;
+            float period = 4.0 + 8.0 * hash(vec2(kk, 1.7));
+            float local = flow / period + hash(vec2(kk, 9.2));
+            float launch = floor(local);
+            float t = fract(local) * period / 0.9;    // 0..1 over a 0.9 s flight
+            if (t >= 1.0) continue;
+            vec2 r = hash2(vec2(launch * 3.1 + kk, kk * 7.7 + launch));
+            vec2 start = vec2((0.10 + 1.00 * r.x) * uRes.x, (-0.05 + 0.55 * r.y) * uRes.y);
+            vec2 d = normalize(radiant + (hash2(vec2(launch, kk + 3.3)) - 0.5) * 0.25);
+            float len = reach * (0.6 + 0.6 * hash(vec2(launch, kk + 5.1)));
+            vec2 head = start + d * len * t;
+            float tail = min(len * 0.45, len * t + 1.0);
+
+            vec2 q = p - head;
+            float along = dot(q, -d);                   // 0 at the head, + along the tail
+            float across = abs(dot(q, vec2(-d.y, d.x)));
+            if (along < -12.0 || along > tail + 12.0 || across > 12.0) continue;
+            float u = clamp(along / tail, 0.0, 1.0);
+            float fadeTail = (1.0 - u) * (1.0 - u) * step(-1.0, along);
+            float width = mix(1.5, 0.4, u);
+            float core = (1.0 - smoothstep(0.0, width, across)) * fadeTail;
+            float glow = exp(-across * 0.45) * fadeTail * 0.25;
+            float headGlow = exp(-length(q) * 0.35) * 0.9;
+            float env = smoothstep(0.0, 0.12, t) * (1.0 - smoothstep(0.65, 1.0, t));
+            float bright = 0.6 + 0.4 * r.y;
+            lit += (core + glow + headGlow) * env * bright;
+        }
+        lit = min(lit, 1.5);
+        vec3 col = vec3(0.01, 0.015, 0.04) * uBackdrop + vec3(0.88, 0.94, 1.00) * (lit * 1.2 + st * 0.9);
+        float alpha = clamp(0.12 * uBackdrop + lit * 0.9 + st * 0.6, 0.0, 1.0);
+        return vec4(col, alpha * qt_Opacity);
     }
 
     // Effects not yet implemented render nothing.
-    fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+    return vec4(0.0, 0.0, 0.0, 0.0);
+}
+
+// Recolour a finished pixel to the user's tint. Each pixel keeps its own
+// brightness (its max channel) but takes the tint's hue, so every effect's
+// depth, glow, and falloff survive the recolour. Dim pixels (the full-screen
+// washes several effects lay under their particles) take only half the
+// tint's saturation so they stay a soft cast rather than a coloured sheet,
+// and the hottest cores (brightness pushed past 1 by the effects' glow gains)
+// bleach part way toward white so glows still read as light, not paint.
+vec4 tint(vec4 c)
+{
+    if (uTint.a < 0.5) return c;
+    float v = max(c.r, max(c.g, c.b));
+    vec3 t = uTint.rgb / max(max(uTint.r, max(uTint.g, uTint.b)), 0.001);
+    vec3 rgb = mix(vec3(v), t * v, mix(0.5, 1.0, smoothstep(0.3, 0.8, v)));
+    rgb = mix(rgb, vec3(v), smoothstep(0.85, 1.4, v) * 0.5);
+    return vec4(rgb, c.a);
+}
+
+void main()
+{
+    // Continuous time, no modulo: wrapping would teleport every streak at the
+    // wrap instant. Precision far exceeds realistic session lengths.
+    float flow = time * uSpeed;
+    vec2 p = qt_TexCoord0 * uRes;
+    fragColor = tint(scene(p, flow)) * uOpacity;
 }
