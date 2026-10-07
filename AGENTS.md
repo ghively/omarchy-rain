@@ -39,7 +39,10 @@ The GPU runs it once for every pixel, every frame (up to 60 per second).
 5. **Register effects only with `tools/new_effect.py`.** Hand-editing the tables is how effects end up in the menu but fail to save.
 6. **Animate with `flow`, never `time`.** `flow = time * uSpeed`, so the speed slider keeps working.
 7. **Always return `vec4(col, alpha * qt_Opacity)`** from your branch.
-8. **All tests must pass:** `python3 -m unittest discover -s tests`.
+8. **All tests must pass:** `python3 -m unittest discover -s tests` must end
+   with `OK`. Any `FAIL` or `ERROR` means you are not done, even if the
+   failing test looks unrelated to your change. Fix it, or stop and report
+   the exact test names and messages.
 
 ## 3. One-time setup
 
@@ -129,8 +132,9 @@ visibly lighter than 3, and the wallpaper gradient must stay visible.
 **Step 6: prove nothing else changed.** Compare against the committed build:
 
 ```sh
-git show HEAD:rain.frag.qsb > /tmp/before.qsb
-python3 tools/render_effect.py --all --compare /tmp/before.qsb
+mkdir -p fx-previews
+git show HEAD:rain.frag.qsb > fx-previews/before.qsb      # fx-previews/ is git-ignored
+python3 tools/render_effect.py --all --compare fx-previews/before.qsb
 ```
 
 Only your new effect may say `DIFFERS`. If any other effect differs, you
@@ -206,6 +210,21 @@ return vec4(col, alpha * qt_Opacity);
 ```
 
 Arguments: `(p, cell size px, particle size px, flow, seed, sideways drift px)`.
+Pick the layer whose **motion** matches your idea:
+
+| Layer | Motion | Look |
+| --- | --- | --- |
+| `snowLayer` | Falls, sways in a breeze | Soft round flake |
+| `emberLayer` | Rises, sways, flickers | Bright core with halo |
+| `fireflyLayer` | Wanders slowly in all directions, pulses | Bright core with halo |
+| `dustLayer` | Hangs almost still, drifts lazily | Tiny soft speck |
+| `leafLayer`, `confettiLayer` | Fall while tumbling and rotating | Coloured ellipse / rectangle (`vec3`) |
+
+These layers only draw **dots** (or leaves/confetti). If the request names a
+shape (lanterns, hearts, petals, bats), calling a layer unchanged gives you
+recoloured dots, which does **not** meet the request. Copy the closest layer,
+rename it, and replace its dot with the shape using Pattern D (for example a
+lantern is a rounded rectangle with a warm glow around it).
 Use different `seed` numbers from every other effect. To change how a
 particle moves or looks, copy the layer function, rename it (`lanternLayer`),
 put the copy next to the original, and edit the copy. **Never edit a shared
@@ -292,6 +311,13 @@ Look at the PNGs from step 5. All must hold:
 6. No hard straight seams, grid lines, or visible repeating tiles.
 7. Step 6's comparison shows only your effect as `DIFFERS`.
 8. Tests pass and `build_shader.sh --check` is up to date.
+9. **It looks like what was asked for.** Write one sentence describing what
+   you actually see in the PNG, then compare it with the request word by
+   word. "Orange dots rising" is not "paper lanterns". If the request names
+   a shape or behaviour you can't see, keep working.
+10. **It is not just an existing effect recoloured.** Render the closest
+    existing effect next to yours; a viewer must be able to tell them apart
+    without colour (the COLOR menu already recolours everything).
 
 ## 8. Troubleshooting
 
@@ -333,5 +359,7 @@ run the tests; they list anything you missed.
 ## 10. When you report back
 
 State what effect you added or changed, its `uEffect` id, the PNG paths you
-checked, the output of the `--compare` run, and the test result. If you could
+checked with your one-sentence description of each, the output of the
+`--compare` run, and the **full last line** of the test run (`OK` or
+`FAILED (...)`) with the name of every failing test. If you could
 not run the renderer, say so plainly instead of claiming it looks right.

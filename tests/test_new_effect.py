@@ -54,41 +54,41 @@ class NewEffectTests(unittest.TestCase):
         return code, out.getvalue() + err.getvalue()
 
     def test_registers_effect_everywhere(self):
-        code, output = self.run_tool("Lanterns", "--label", "Sky Lanterns", "--description",
+        code, output = self.run_tool("Scaffoldprobe", "--label", "Scaffold Probe", "--description",
                                      "Warm paper lanterns rising slowly", "--after", "Embers")
         self.assertEqual(code, 0, output)
         lists = catalogue(self.tmp)
         for name, items in lists.items():
             with self.subTest(table=name):
-                self.assertIn("Lanterns", items)
+                self.assertIn("Scaffoldprobe", items)
                 self.assertEqual(set(items), set(lists["effectIds"]))
         order = lists["implementedEffects"]
-        self.assertEqual(order[order.index("Embers") + 1], "Lanterns")
+        self.assertEqual(order[order.index("Embers") + 1], "Scaffoldprobe")
         qml = (self.tmp / "Rain.qml").read_text()
-        effect_id = int(re.search(r'"Lanterns": (\d+)', qml).group(1))
+        effect_id = int(re.search(r'"Scaffoldprobe": (\d+)', qml).group(1))
         ids = [int(n) for n in re.findall(r'": (\d+)', re.search(r"effectIds: \{(.*?)\n  \}", qml, re.S).group(1))]
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(effect_id, min(set(range(100)) - set(ids) | {effect_id}))
         frag = (self.tmp / "rain.frag").read_text()
         self.assertIn("uEffect > %.1f && uEffect < %.1f" % (effect_id - 0.5, effect_id + 0.5), frag)
-        self.assertLess(frag.index("TODO(Lanterns)"), frag.index("// Effects not yet implemented"))
+        self.assertLess(frag.index("TODO(Scaffoldprobe)"), frag.index("// Effects not yet implemented"))
         readme = (self.tmp / "README.md").read_text()
-        self.assertIn("| `Lanterns` | Warm paper lanterns rising slowly |", readme)
-        self.assertRegex(readme, r"`Embers`, `Lanterns`")
+        self.assertIn("| `Scaffoldprobe` | Warm paper lanterns rising slowly |", readme)
+        self.assertRegex(readme, r"`Embers`, `Scaffoldprobe`")
 
     def test_scaffolded_effect_saves(self):
-        self.assertEqual(self.run_tool("Lanterns", "--description", "x")[0], 0)
+        self.assertEqual(self.run_tool("Scaffoldprobe", "--description", "x")[0], 0)
         spec = importlib.util.spec_from_file_location("ws_tmp", self.tmp / "write_settings.py")
         helper = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(helper)
-        self.assertEqual(helper.validate_changes({"effect": "Lanterns"}), {"effect": "Lanterns"})
+        self.assertEqual(helper.validate_changes({"effect": "Scaffoldprobe"}), {"effect": "Scaffoldprobe"})
 
     def test_refuses_bad_input_without_writing(self):
         before = {name: (self.tmp / name).read_text() for name in FILES}
         for args in (("Rain", "--description", "x"),
                      ("lowercase", "--description", "x"),
-                     ("Lanterns", "--description", "x", "--after", "Nope"),
-                     ("Lanterns", "--description", "x", "--id", "0")):
+                     ("Scaffoldprobe", "--description", "x", "--after", "Nope"),
+                     ("Scaffoldprobe", "--description", "x", "--id", "0")):
             with self.subTest(args=args):
                 code, _ = self.run_tool(*args)
                 self.assertEqual(code, 1)
