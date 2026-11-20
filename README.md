@@ -4,10 +4,16 @@ Animated effects over the desktop wallpaper — drawn by a GPU shader on a
 full-screen background surface, so every window stays on top of them. Toggled
 from the wand icon in the Omarchy bar.
 
+> **Origin:** Based on [omarchy-rain](https://github.com/davidmessenger123/omarchy-rain)
+> by David John Messenger (MIT — see `LICENSE`). This repository adds the
+> Starfield, Fog, Nebula, and Meteor Shower effects, global tint/opacity
+> controls, and the agent tooling (`AGENTS.md`, the effect scaffolder, and the
+> render/test harness) on top of his original plugin.
+
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/davidmessenger123/omarchy-rain.git --enable
+omarchy plugin add https://github.com/ghively/omarchy-rain.git --enable
 ```
 
 The bar asks where to place the wand; `omarchy bar move davidjm.rain -s right`
